@@ -1,0 +1,178 @@
+# aethel-workspace - Themes Configuration
+# Defines the cryptographic corporate design tokens, accessible color matrices, light/dark state behaviors, and typography for the Nuxt 3 UI components.
+
+metadata:
+  version: "1.0.0"
+  engine_target: "tailwind-css-4.x"
+  strict_validation: true
+
+global_defaults:
+  default_mode: "system" # Options: light, dark, system
+  fallback_theme: "enterprise_classic"
+  color_space: "oklch"
+  accessibility:
+    force_minimum_contrast_ratio: "4.5:1" # WCAG AA Standard
+    enable_focus_rings: true
+
+themes:
+  # =========================================================================
+  # 1. ENTERPRISE CLASSIC (The Professional Slate/Blue Corporate Archetype)
+  # =========================================================================
+  enterprise_classic:
+    id: "theme_classic"
+    name: "Aethel Slate Governance"
+    modes:
+      light:
+        surfaces:
+          canvas: "bg-slate-50"
+          panel: "bg-white border-slate-200"
+          panel_header: "bg-slate-100/75 border-slate-200"
+          popover: "bg-white shadow-xl ring-1 ring-black/5"
+          overlay: "bg-slate-900/40 backdrop-blur-sm"
+        brand:
+          primary: "text-blue-600 bg-blue-600 border-blue-600"
+          primary_hover: "text-blue-700 bg-blue-700 border-blue-700"
+          secondary: "text-slate-600 bg-slate-100 border-slate-200"
+          secondary_hover: "text-slate-700 bg-slate-200 border-slate-300"
+        typography:
+          base: "text-slate-900"
+          muted: "text-slate-500"
+          inverted: "text-white"
+          links: "text-blue-600 hover:text-blue-700"
+        state_indicators:
+          urgency_immediate: "bg-rose-50 border-rose-200 text-rose-700 icon-rose-600"
+          urgency_priority: "bg-amber-50 border-amber-200 text-amber-700 icon-amber-600"
+          urgency_routine: "bg-emerald-50 border-emerald-200 text-emerald-700 icon-emerald-600"
+          workflow_signed: "bg-sky-50 border-sky-200 text-sky-700"
+          workflow_returned: "bg-indigo-50 border-indigo-200 text-indigo-700"
+        borders:
+          subtle: "border-slate-200"
+          strong: "border-slate-300"
+          focus: "ring-2 ring-blue-500 ring-offset-2 offset-white"
+
+      dark:
+        surfaces:
+          canvas: "bg-slate-950"
+          panel: "bg-slate-900 border-slate-800/80"
+          panel_header: "bg-slate-900/50 border-slate-800"
+          popover: "bg-slate-900 shadow-2xl ring-1 ring-white/10"
+          overlay: "bg-black/60 backdrop-blur-sm"
+        brand:
+          primary: "text-blue-500 bg-blue-500 border-blue-500"
+          primary_hover: "text-blue-400 bg-blue-400 border-blue-400"
+          secondary: "text-slate-300 bg-slate-800 border-slate-700"
+          secondary_hover: "text-slate-200 bg-slate-700 border-slate-600"
+        typography:
+          base: "text-slate-100"
+          muted: "text-slate-400"
+          inverted: "text-slate-950"
+          links: "text-blue-400 hover:text-blue-300"
+        state_indicators:
+          urgency_immediate: "bg-rose-950/40 border-rose-800/50 text-rose-300 icon-rose-400"
+          urgency_priority: "bg-amber-950/40 border-amber-800/50 text-amber-300 icon-amber-400"
+          urgency_routine: "bg-emerald-950/40 border-emerald-800/50 text-emerald-300 icon-emerald-400"
+          workflow_signed: "bg-sky-950/40 border-sky-800/50 text-sky-300"
+          workflow_returned: "bg-indigo-950/40 border-indigo-800/50 text-indigo-300"
+        borders:
+          subtle: "border-slate-800"
+          strong: "border-slate-700"
+          focus: "ring-2 ring-blue-500 ring-offset-2 offset-slate-950"
+
+  # =========================================================================
+  # 2. LEGAL GREEN NOTING LAB (The Strict, High-Contrast Administrative Theme)
+  # =========================================================================
+  legal_noting_canvas:
+    id: "theme_legal_green"
+    name: "Chancery Traditional Notes"
+    modes:
+      light:
+        surfaces:
+          canvas: "bg-zinc-100"
+          panel: "bg-white border-zinc-300"
+          # Traditional Green-Noting Pad Emulator Styling
+          noting_sheet: "bg-[#f4f9f4] border-l-4 border-emerald-600 shadow-sm"
+          panel_header: "bg-zinc-200 border-zinc-300"
+          popover: "bg-white shadow-lg ring-1 ring-zinc-400"
+          overlay: "bg-zinc-900/50"
+        brand:
+          primary: "text-emerald-700 bg-emerald-700 border-emerald-700"
+          primary_hover: "text-emerald-800 bg-emerald-800 border-emerald-800"
+          secondary: "text-zinc-700 bg-zinc-200 border-zinc-300"
+          secondary_hover: "text-zinc-800 bg-zinc-300 border-zinc-400"
+        typography:
+          base: "text-zinc-900"
+          muted: "text-zinc-500"
+          noting_text: "text-emerald-900 font-serif leading-relaxed"
+          inverted: "text-white"
+          links: "text-emerald-700 hover:text-emerald-800"
+        state_indicators:
+          urgency_immediate: "bg-red-100 border-red-300 text-red-800"
+          urgency_priority: "bg-orange-100 border-orange-300 text-orange-800"
+          urgency_routine: "bg-green-100 border-green-300 text-green-800"
+          workflow_signed: "bg-teal-100 border-teal-300 text-teal-800"
+          workflow_returned: "bg-purple-100 border-purple-300 text-purple-800"
+        borders:
+          subtle: "border-zinc-200"
+          strong: "border-zinc-400"
+          focus: "ring-2 ring-emerald-600 ring-offset-1 offset-white"
+
+      dark:
+        surfaces:
+          canvas: "bg-zinc-950"
+          panel: "bg-zinc-900 border-zinc-800"
+          noting_sheet: "bg-[#0b140e] border-l-4 border-emerald-500 shadow-inner"
+          panel_header: "bg-zinc-900/80 border-zinc-800"
+          popover: "bg-zinc-900 shadow-2xl ring-1 ring-zinc-700"
+          overlay: "bg-black/70"
+        brand:
+          primary: "text-emerald-500 bg-emerald-500 border-emerald-500"
+          primary_hover: "text-emerald-400 bg-emerald-400 border-emerald-400"
+          secondary: "text-zinc-300 bg-zinc-800 border-zinc-700"
+          secondary_hover: "text-zinc-200 bg-zinc-700 border-zinc-600"
+        typography:
+          base: "text-zinc-100"
+          muted: "text-zinc-400"
+          noting_text: "text-emerald-300 font-serif leading-relaxed"
+          inverted: "text-zinc-950"
+          links: "text-emerald-400 hover:text-emerald-300"
+        state_indicators:
+          urgency_immediate: "bg-red-950/50 border-red-900/60 text-red-300"
+          urgency_priority: "bg-orange-950/50 border-orange-900/60 text-orange-300"
+          urgency_routine: "bg-green-950/50 border-green-900/60 text-green-300"
+          workflow_signed: "bg-teal-950/50 border-teal-900/60 text-teal-300"
+          workflow_returned: "bg-purple-950/50 border-purple-900/60 text-purple-300"
+        borders:
+          subtle: "border-zinc-800"
+          strong: "border-zinc-700"
+          focus: "ring-2 ring-emerald-500 ring-offset-1 offset-zinc-950"
+
+# =========================================================================
+# 3. GLOBAL TYPOGRAPHY MATRIX
+# =========================================================================
+typography_spec:
+  fonts:
+    sans: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif"
+    serif: "Playfair Display, Georgia, Cambria, Times New Roman, Times, serif"
+    mono: "JetBrains Mono, Fira Code, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+  sizes:
+    xs: "text-xs font-normal tracking-wide"
+    sm: "text-sm font-normal leading-5"
+    base: "text-base font-normal leading-6"
+    md: "text-md font-medium leading-6"
+    lg: "text-lg font-semibold tracking-tight leading-7"
+    xl: "text-xl font-bold tracking-tight leading-8"
+    xxl: "text-2xl font-extrabold tracking-tight"
+
+# =========================================================================
+# 4. GLOBAL ANIMATION & UTILITY TIMINGS
+# =========================================================================
+animation_tokens:
+  durations:
+    instant: "duration-75"
+    snappy: "duration-150"
+    normal: "duration-200"
+    structural: "duration-300"
+  curves:
+    standard: "ease-in-out"
+    decelerate: "ease-out"
+    accelerate: "ease-in"

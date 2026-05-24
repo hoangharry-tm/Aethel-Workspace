@@ -1,0 +1,130 @@
+# aethel-workspace - Queries Configuration
+# Externalizes raw, performance-critical SQL statements for the Go backend.
+# Maps explicit relational queries directly to Pillars 1, 2, and 3 operations.
+
+metadata:
+  version: "1.0.0"
+  engine_target: "postgresql-16-sql"
+  strict_validation: true
+
+global_query_defaults:
+  timeout_ms: 5000
+  enable_query_plan_caching: true
+
+queries:
+  # =========================================================================
+  # 1. PILLAR 1: DISPATCH MANAGEMENT QUERIES (Inbound & Outbound Tracking)
+  # =========================================================================
+  dispatch:
+    create_inbound_record:
+      statement: |
+        INSERT INTO dispatches (
+          id, tracking_number, sender_name, sender_organization, 
+          delivery_mode, subject_line, assigned_department_id, 
+          priority_level, status_state, origin_user_id, created_at, updated_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, 'PENDING_ASSIGNMENT', $9, NOW(), NOW()
+        ) RETURNING id, tracking_number;
+      params:
+        - "uuid" # $1: id
+        - "varchar" # $2: tracking_number
+        - "varchar" # $3: sender_name
+        - "varchar" # $4: sender_organization
+        - "varchar" # $5: delivery_mode
+        - "text" # $6: subject_line
+        - "uuid" # $7: assigned_department_id
+        - "varchar" # $8: priority_level
+        - "uuid" # $9: origin_user_id
+
+    fetch_active_inbox_by_department:
+      statement: |
+        SELECT id, tracking_number, sender_name, subject_line, priority_level, created_at
+        FROM dispatches
+        WHERE assigned_department_id = $1
+          AND status_state IN ('PENDING_ASSIGNMENT', 'UNDER_REVIEW')
+        ORDER BY 
+          CASE priority_level
+            WHEN 'IMMEDIATE' THEN 1
+            WHEN 'PRIORITY' THEN 2
+            WHEN 'ROUTINE' THEN 3
+            ELSE 4
+          END ASC, 
+          created_at DESC
+        LIMIT $2 OFFSET $3;
+      params:
+        - "uuid" # $1: assigned_department_id
+        - "integer" # $2: limit
+        - "integer" # $3: offset
+
+  # =========================================================================
+  # 2. PILLAR 2: GREEN NOTING & APPROVAL WORKFLOW QUERIES
+  # =========================================================================
+  workflow:
+    fetch_complete_minute_sheet_timeline:
+      statement: |
+        SELECT 
+          gn.id AS note_id,
+          gn.sequence_order,
+          gn.content_body,
+          gn.cryptographic_hash,
+          gn.is_signed,
+          gn.created_at AS signed_at,
+          u.id AS author_id,
+          u.full_name AS author_name,
+          u.job_title AS author_title
+        FROM green_notes gn
+        INNER JOIN minute_sheets ms ON gn.minute_sheet_id = ms.id
+        INNER JOIN users u ON gn.author_officer_id = u.id
+        WHERE ms.dispatch_id = $1
+        ORDER BY gn.sequence_order ASC;
+      params:
+        - "uuid" # $1: dispatch_id
+
+    append_certified_green_note:
+      statement: |
+        INSERT INTO green_notes (
+          id, minute_sheet_id, sequence_order, author_officer_id, 
+          content_body, cryptographic_hash, is_signed, created_at
+        ) VALUES (
+          $1, 
+          (SELECT id FROM minute_sheets WHERE dispatch_id = $2 LIMIT 1),
+          COALESCE((SELECT MAX(sequence_order) + 1 FROM green_notes WHERE minute_sheet_id = (SELECT id FROM minute_sheets WHERE dispatch_id = $2 LIMIT 1)), 1),
+          $3, $4, $5, TRUE, NOW()
+        ) RETURNING id, sequence_order;
+      params:
+        - "uuid" # $1: id
+        - "uuid" # $2: dispatch_id
+        - "uuid" # $3: author_officer_id
+        - "text" # $4: content_body
+        - "varchar" # $5: cryptographic_hash
+
+  # =========================================================================
+  # 3. PILLAR 3: RBAC & IMMUTABLE AUDIT LEDGER QUERIES
+  # =========================================================================
+  governance:
+    write_security_audit_log:
+      statement: |
+        INSERT INTO audit_ledger (
+          actor_user_id, action_event_type, target_resource_id, 
+          client_ip_address, user_agent, payload_checksum, created_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, NOW()
+        );
+      params:
+        - "uuid" # $1: actor_user_id
+        - "varchar" # $2: action_event_type
+        - "uuid" # $3: target_resource_id
+        - "inet" # $4: client_ip_address
+        - "text" # $5: user_agent
+        - "varchar" # $6: payload_checksum
+
+    query_tamper_detection_ledger:
+      statement: |
+        SELECT id, actor_user_id, action_event_type, target_resource_id, created_at
+        FROM audit_ledger
+        WHERE created_at >= $1 AND created_at <= $2
+          AND action_event_type IN ('SECURITY_BREACH_ATTEMPT', 'UNAUTHORIZED_ACCESS_BYPASSED', 'RBAC_ELEVATION_ATTEMPT')
+        ORDER BY created_at DESC;
+      params:
+        - "timestamp" # $1: start_date
+        - "timestamp" # $2: end_date

@@ -1,0 +1,293 @@
+# aethel-workspace - Layouts Configuration
+# Defines the master page shells, structural viewports, and navigation routing for the Nuxt 3 frontend.
+
+metadata:
+  version: "1.0.0"
+  engine_target: "nuxt-3.x"
+  strict_validation: true
+
+global_defaults:
+  animations:
+    transition_name: "layout-fade"
+    mode: "out-in"
+  error_boundary:
+    fallback_component: "GlobalErrorFallback"
+    report_to_backend: true
+
+layouts:
+  # =========================================================================
+  # 1. AUTHENTICATION & GATEWAY LAYOUT
+  # =========================================================================
+  auth:
+    id: "layout_auth"
+    name: "Minimal Gateway"
+    root_class: "min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-sans"
+    slots:
+      - id: "slot_auth_main"
+        name: "default"
+        required: true
+    regions:
+      header:
+        hidden: true
+      sidebar:
+        hidden: true
+      footer:
+        hidden: false
+        component: "AuthFooter"
+        props:
+          show_copyright: true
+          show_version: true
+    middleware:
+      - "guest-only"
+
+  # =========================================================================
+  # 2. WORKSPACE / MAIN APPLICATION LAYOUT (The Core e-Office Shell)
+  # =========================================================================
+  workspace:
+    id: "layout_workspace"
+    name: "Enterprise Main Workspace"
+    root_class: "h-screen overflow-hidden bg-slate-50 flex font-sans text-slate-900"
+    middleware:
+      - "auth-required"
+      - "sync-user-session"
+
+    viewports:
+      # Top global execution and notification bar
+      navbar:
+        component: "WorkspaceNavbar"
+        sticky: true
+        props:
+          show_search_bar: true
+          show_quick_actions: true
+          show_notification_center: true
+          profile_dropdown:
+            show_role_badge: true
+            show_department: true
+            actions:
+              - {
+                  label: "Preferences",
+                  route: "/settings/profile",
+                  icon: "user-cog",
+                }
+              - {
+                  label: "Switch Department",
+                  route: "/auth/switch-role",
+                  icon: "users",
+                }
+              - { label: "Sign Out", route: "/auth/logout", icon: "log-out" }
+
+      # Left primary navigation matrix
+      sidebar:
+        component: "WorkspaceSidebar"
+        collapsible: true
+        default_state: "expanded" # Options: expanded, collapsed
+        width:
+          expanded: "w-64"
+          collapsed: "w-16"
+        props:
+          show_branding: true
+          branding_logo: "/assets/brand/aethel-logo.svg"
+        navigation_tree:
+          - group: "Core Dispatch Engine"
+            required_permission: "dispatch.view"
+            items:
+              - {
+                  name: "Dashboard",
+                  icon: "layout-dashboard",
+                  route: "/dashboard",
+                }
+              - {
+                  name: "Inbound DAK Inbox",
+                  icon: "inbox-incoming",
+                  route: "/dispatch/inbound",
+                  badge: "async_inbound_count",
+                }
+              - {
+                  name: "Outbound Dispatches",
+                  icon: "send",
+                  route: "/dispatch/outbound",
+                }
+              - {
+                  name: "My Active Files",
+                  icon: "folder-open",
+                  route: "/workspace/active",
+                  badge: "async_active_files",
+                }
+
+          - group: "Process & Approvals"
+            required_permission: "workflow.view"
+            items:
+              - {
+                  name: "Pending Action",
+                  icon: "clock-alert",
+                  route: "/workflows/pending",
+                  badge: "async_action_required_count",
+                }
+              - {
+                  name: "Initiate File/Note",
+                  icon: "file-plus-2",
+                  route: "/workflows/initiate",
+                }
+              - {
+                  name: "Tracked Movements",
+                  icon: "git-fork",
+                  route: "/workflows/tracking",
+                }
+
+          - group: "Governance & Archival"
+            required_permission: "archive.view"
+            items:
+              - {
+                  name: "Central File Registry",
+                  icon: "archive",
+                  route: "/archive/registry",
+                }
+              - {
+                  name: "Audit Trail Ledger",
+                  icon: "shield-alert",
+                  route: "/governance/audit-logs",
+                  required_role: "sys_admin",
+                }
+              - {
+                  name: "Retention Schedules",
+                  icon: "calendar-clock",
+                  route: "/governance/retention",
+                  required_role: "sys_admin",
+                }
+
+      # Center dynamic viewport area
+      main_content_canvas:
+        wrapper_class: "flex-1 flex flex-col min-w-0 overflow-hidden"
+        scrollable_container_class: "flex-1 overflow-y-auto focus:outline-none p-6"
+        slots:
+          - id: "slot_workspace_breadcrumbs"
+            name: "breadcrumbs"
+            required: false
+          - id: "slot_workspace_body"
+            name: "default"
+            required: true
+
+  # =========================================================================
+  # 3. DUAL-PANEL DOCUMENT EXAMINER LAYOUT (Split-Screen View for Pillar 1 & 2)
+  # =========================================================================
+  document_examiner:
+    id: "layout_document_examiner"
+    name: "Split-Screen Processing Canvas"
+    root_class: "h-screen w-screen overflow-hidden flex flex-col bg-slate-900 text-slate-100"
+    middleware:
+      - "auth-required"
+      - "verify-file-access-token"
+
+    viewports:
+      top_control_strip:
+        component: "ExaminerControlHeader"
+        props:
+          show_file_reference_number: true
+          show_urgency_tag: true
+          action_buttons:
+            - {
+                type: "primary",
+                action: "triggerApprovalModal",
+                label: "Approve & Forward",
+                icon: "check-circle",
+                permission: "workflow.approve",
+              }
+            - {
+                type: "secondary",
+                action: "triggerReturnModal",
+                label: "Return to Initiator",
+                icon: "arrow-left-to-line",
+                permission: "workflow.return",
+              }
+            - {
+                type: "danger",
+                action: "triggerFlagModal",
+                label: "Flag Discrepancy",
+                icon: "flag",
+                permission: "workflow.flag",
+              }
+
+      split_canvas:
+        wrapper_class: "flex-1 flex min-h-0 divide-x divide-slate-800"
+
+        # Left Panel: Digital File Vault Viewer (PDF/OCR display)
+        left_pane:
+          id: "pane_vault_viewer"
+          default_width_percentage: 55
+          min_width_pixels: 450
+          resizable: true
+          wrapper_class: "h-full overflow-hidden flex flex-col bg-slate-950"
+          slots:
+            - id: "slot_pdf_renderer"
+              name: "document-viewer"
+              required: true
+
+        # Right Panel: Institutional Green Noting Canvas & Chronological Minute Sheets
+        right_pane:
+          id: "pane_noting_engine"
+          default_width_percentage: 45
+          min_width_pixels: 350
+          resizable: true
+          wrapper_class: "h-full overflow-hidden flex flex-col bg-slate-900"
+          slots:
+            - id: "slot_green_notes_timeline"
+              name: "noting-timeline"
+              required: true
+            - id: "slot_active_editor"
+              name: "note-editor"
+              required: true
+
+      footer_status_rail:
+        component: "ExaminerStatusBar"
+        props:
+          show_lock_status: true
+          show_active_viewers: true
+          show_cryptographic_verification_token: true
+
+  # =========================================================================
+  # 4. PARALLEL PROCESSING & ADVISORY LAYOUT (Multi-Department Panel Matrix)
+  # =========================================================================
+  parallel_review:
+    id: "layout_parallel_review"
+    name: "Multi-Panel Grid Workspace"
+    root_class: "h-screen overflow-hidden flex flex-col bg-slate-100 font-sans"
+    middleware:
+      - "auth-required"
+    viewports:
+      header:
+        component: "WorkspaceNavbar"
+      grid_container:
+        wrapper_class: "flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 p-4 overflow-hidden min-h-0"
+        slots:
+          - id: "slot_panel_left"
+            name: "originating-dispatch"
+            required: true
+            class: "bg-white rounded-lg shadow h-full overflow-y-auto p-4"
+          - id: "slot_panel_center"
+            name: "department-advice-stream"
+            required: true
+            class: "bg-white rounded-lg shadow h-full overflow-y-auto p-4"
+          - id: "slot_panel_right"
+            name: "consolidation-terminal"
+            required: true
+            class: "bg-slate-50 rounded-lg border-2 border-dashed border-slate-300 h-full overflow-y-auto p-4"
+
+  # =========================================================================
+  # 5. ISOLATED SYSTEM PRISTINE LAYOUT (System Auditing, Setup, & Hard Errors)
+  # =========================================================================
+  isolated:
+    id: "layout_isolated"
+    name: "Isolated Focus Terminal"
+    root_class: "min-h-screen bg-slate-950 flex flex-col justify-between font-mono text-emerald-400 p-8"
+    slots:
+      - id: "slot_isolated_core"
+        name: "default"
+        required: true
+    regions:
+      header:
+        component: "IsolatedTerminalHeader"
+        props:
+          show_kernel_status: true
+          show_environment: true
+      footer:
+        component: "IsolatedTerminalFooter"

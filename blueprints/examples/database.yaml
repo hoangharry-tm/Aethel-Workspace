@@ -1,0 +1,144 @@
+# aethel-workspace - Database Configuration
+# Defines database connections, relational structural metadata, migration parameters, and connection pool limits for the Go backend.
+
+metadata:
+  version: "1.0.0"
+  engine_target: "postgresql-16+"
+  strict_validation: true
+
+global_database_defaults:
+  dialect: "postgres"
+  encoding: "UTF8"
+  timezone: "UTC"
+  logging:
+    log_queries: true
+    slow_query_threshold_ms: 200
+    log_level: "warn"
+
+environments:
+  # =========================================================================
+  # 1. DEVELOPMENT INSTANCE DETAILS
+  # =========================================================================
+  development:
+    connection:
+      host: "127.0.0.1"
+      port: 5432
+      database: "aethel_workspace_dev"
+      user: "aethel_dev_user"
+      ssl_mode: "disable"
+    pooling:
+      max_open_connections: 20
+      max_idle_connections: 5
+      connection_max_lifetime_minutes: 15
+      connection_max_idle_time_minutes: 5
+    migrations:
+      directory: "./internal/database/migrations"
+      auto_run_on_startup: true
+      table_name: "schema_migrations_history"
+
+  # =========================================================================
+  # 2. PRODUCTION ARCHITECTURE LAYOUT
+  # =========================================================================
+  production:
+    connection:
+      host: "production-pg-cluster.internal"
+      port: 5432
+      database: "aethel_workspace_prod"
+      user: "aethel_prod_app"
+      ssl_mode: "verify-full"
+      ssl_root_cert_path: "/etc/ssl/certs/pg-root.crt"
+    pooling:
+      max_open_connections: 100
+      max_idle_connections: 25
+      connection_max_lifetime_minutes: 60
+      connection_max_idle_time_minutes: 15
+    migrations:
+      directory: "./internal/database/migrations"
+      auto_run_on_startup: false # Production deployments require separate out-of-band migration execution steps
+      table_name: "schema_migrations_history"
+
+# =========================================================================
+# 3. SCHEMA MAP (Core Entities for Pillars 1, 2, and 3)
+# =========================================================================
+schema_registry:
+  # Pillar 1: Inbound & Outbound Tracking Entities
+  table_dispatches:
+    name: "dispatches"
+    primary_key: "id (uuid)"
+    indexes:
+      - name: "idx_dispatches_tracking_num"
+        columns: ["tracking_number"]
+        unique: true
+      - name: "idx_dispatches_status"
+        columns: ["status_state", "priority_level"]
+    foreign_keys:
+      - {
+          column: "origin_user_id",
+          references: "users(id)",
+          on_delete: "RESTRICT",
+        }
+      - {
+          column: "assigned_department_id",
+          references: "departments(id)",
+          on_delete: "RESTRICT",
+        }
+
+  # Pillar 2: Green Noting Chronological Trail Entities
+  table_minute_sheets:
+    name: "minute_sheets"
+    primary_key: "id (uuid)"
+    indexes:
+      - name: "idx_minute_sheets_dispatch"
+        columns: ["dispatch_id"]
+        unique: false
+    foreign_keys:
+      - {
+          column: "dispatch_id",
+          references: "dispatches(id)",
+          on_delete: "CASCADE",
+        }
+
+  table_green_notes:
+    name: "green_notes"
+    primary_key: "id (uuid)"
+    indexes:
+      - name: "idx_green_notes_sequence"
+        columns: ["minute_sheet_id", "sequence_order"]
+        unique: true
+    foreign_keys:
+      - {
+          column: "minute_sheet_id",
+          references: "minute_sheets(id)",
+          on_delete: "CASCADE",
+        }
+      - {
+          column: "author_officer_id",
+          references: "users(id)",
+          on_delete: "RESTRICT",
+        }
+
+  # Pillar 3: RBAC & Immutable System Auditing Entities
+  table_users:
+    name: "users"
+    primary_key: "id (uuid)"
+    indexes:
+      - name: "idx_users_email"
+        columns: ["email_address"]
+        unique: true
+
+  table_audit_ledger:
+    name: "audit_ledger"
+    primary_key: "id (bigserial)"
+    partition_strategy:
+      type: "range"
+      column: "created_at"
+      interval: "monthly"
+    indexes:
+      - name: "idx_audit_ledger_lookup"
+        columns: ["actor_user_id", "action_event_type", "created_at"]
+    foreign_keys:
+      - {
+          column: "actor_user_id",
+          references: "users(id)",
+          on_delete: "NO ACTION",
+        }

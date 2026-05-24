@@ -1,0 +1,175 @@
+# aethel-workspace - Components Configuration
+# Maps logical application widgets to their strict architectural parameters, validation rules, state schemas, and sub-component dependencies.
+
+metadata:
+  version: "1.0.0"
+  engine_target: "nuxt-3.x-components"
+  strict_validation: true
+
+global_component_defaults:
+  caching:
+    enable_swr: true # Stale-While-Revalidate default
+    ttl_seconds: 300
+  telemetry:
+    track_interactions: true
+    log_level: "warn"
+
+components:
+  # =========================================================================
+  # 1. PILLAR 1: INBOUND DAK DIARIZATION COMPONENT
+  # =========================================================================
+  dak_diarization_form:
+    id: "comp_dak_form"
+    name: "Inbound Correspondence Intake Terminal"
+    path: "~/components/dispatch/DakDiarizationForm.vue"
+    state_schema:
+      fields:
+        - {
+            name: "sender_name",
+            type: "string",
+            required: true,
+            max_length: 150,
+          }
+        - {
+            name: "sender_organization",
+            type: "string",
+            required: false,
+            max_length: 200,
+          }
+        - {
+            name: "received_date",
+            type: "date",
+            required: true,
+            default: "CURRENT_DATE",
+          }
+        - {
+            name: "delivery_mode",
+            type: "enum",
+            required: true,
+            options: ["POST", "COURIER", "HAND_DELIVERY", "EMAIL"],
+          }
+        - {
+            name: "subject_line",
+            type: "string",
+            required: true,
+            min_length: 10,
+            max_length: 500,
+          }
+        - { name: "assigned_department_id", type: "uuid", required: true }
+        - {
+            name: "priority_level",
+            type: "enum",
+            required: true,
+            options: ["ROUTINE", "PRIORITY", "IMMEDIATE"],
+            default: "ROUTINE",
+          }
+    validation:
+      custom_rules:
+        - "verify_future_date_blocked"
+        - "sanitise_html_inputs"
+    sub_components:
+      - id: "comp_file_uploader"
+        mount_point: "slot_attachment_zone"
+        props:
+          allowed_extensions: [".pdf"]
+          max_file_size_mb: 25
+          virus_scan_on_upload: true
+      - id: "comp_department_dropdown"
+        mount_point: "slot_dept_select"
+        props:
+          fetch_strategy: "lazy_on_focus"
+          allow_cross_department: false
+
+  # =========================================================================
+  # 2. PILLAR 2: GREEN NOTING CANVAS ENGINE
+  # =========================================================================
+  green_noting_canvas:
+    id: "comp_noting_canvas"
+    name: "Institutional Minute Sheet & Note Stream"
+    path: "~/components/workflow/GreenNotingCanvas.vue"
+    props:
+      allow_rich_text: false # Strict administrative noting forces plain text or basic Markdown
+      enable_noting_hierarchy: true
+    state_schema:
+      active_file_id: "uuid"
+      current_note_draft: "string"
+      is_locked_by_current_user: "boolean"
+    events:
+      - name: "note_saved"
+        payload: { file_id: "uuid", note_id: "uuid", checksum: "string" }
+      - name: "note_forwarded"
+        payload:
+          {
+            file_id: "uuid",
+            target_officer_id: "uuid",
+            routing_action: "string",
+          }
+    sub_components:
+      - id: "comp_chronological_minute_sheet"
+        mount_point: "slot_historical_notes_container"
+        props:
+          render_order: "asc"
+          highlight_unresolved_flags: true
+          show_sign_badges: true
+      - id: "comp_cryptographic_signing_modal"
+        mount_point: "slot_action_modals"
+        props:
+          supported_methods:
+            [
+              "PIN_VERIFICATION",
+              "HARDWARE_TOKEN",
+              "DIGITAL_SIGNATURE_CERTIFICATE",
+            ]
+
+  # =========================================================================
+  # 3. PILLAR 3: RBAC AUDIT LEDGER TERMINAL
+  # =========================================================================
+  audit_ledger_table:
+    id: "comp_audit_ledger"
+    name: "Immutable Security Event Auditor"
+    path: "~/components/governance/AuditLedgerTable.vue"
+    required_role: "sys_admin"
+    props:
+      items_per_page: 25
+      exportable_formats: ["CSV", "PDF_SIGNED"]
+    state_schema:
+      filters:
+        user_id: "uuid"
+        event_action: "string"
+        start_date: "timestamp"
+        end_date: "timestamp"
+      sorting:
+        column: "timestamp"
+        direction: "desc"
+    events:
+      - name: "audit_exported"
+        payload:
+          { format: "string", timestamp: "timestamp", rows_count: "integer" }
+    sub_components:
+      - id: "comp_table_pagination"
+        mount_point: "slot_table_footer"
+      - id: "comp_ocr_content_search_bar"
+        mount_point: "slot_table_controls"
+        props:
+          placeholder: "Search actions or deep indexing hash..."
+          debounce_ms: 400
+
+  # =========================================================================
+  # 4. SHARED UTILITIES COMPONENTS
+  # =========================================================================
+  file_vault_viewer:
+    id: "comp_file_viewer"
+    name: "Secure PDF Sandboxed Renderer"
+    path: "~/components/shared/FileVaultViewer.vue"
+    props:
+      disable_print: true
+      disable_download: true
+      enable_watermarking: true
+      watermark_pattern: "CONFIDENTIAL - ${user_id} - ${client_ip}"
+    state_schema:
+      current_page: "integer"
+      zoom_level: "float"
+      is_ocr_layer_active: "boolean"
+    events:
+      - name: "page_scrolled"
+        payload: { target_page: "integer", duration_seconds: "integer" }
