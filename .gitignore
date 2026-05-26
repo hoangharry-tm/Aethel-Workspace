@@ -1,3 +1,25 @@
-# CLAUDE.md
-# .claude/
-# docs/
+# Environment files — never commit real secrets
+.env
+.env.local
+.env.*.local
+
+# Build output
+build/bin/
+aethel-core/aethel
+
+# Frontend build artifacts (tracked separately via Dockerfile)
+aethel-view/.nuxt/
+aethel-view/.output/
+aethel-view/node_modules/
+
+# Go toolchain
+aethel-core/vendor/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+*.swp
+*.swo
