@@ -1,0 +1,170 @@
+# yaml-language-server: $schema=./schemas/server-database.schema.json
+# Aethel Workspace — Server Database Blueprint
+# Configures the PostgreSQL runtime for aethel-core (Go backend).
+# Engine: PostgreSQL 16+  |  Blueprint version: 1.0.0
+#
+# Convention reference: docs/server-blueprint-conventions.md §1
+# Table schema design:  docs/db-design.mmd
+# Migration strategy:   docs/migration-strategy.md
+#
+# ─── SECURITY NOTICE ────────────────────────────────────────────────────────
+# Passwords are NEVER stored in this file.
+# Set AETHEL_DB_PASSWORD (or AETHEL_DB_DSN) as an environment variable.
+# ────────────────────────────────────────────────────────────────────────────
+---
+metadata:
+  version: "1.0.0"
+  engine_target: "postgresql-16+"
+  strict_validation: true
+
+# ════════════════════════════════════════════════════════════════════════════
+# GLOBAL DEFAULTS  (applied to all environments unless overridden)
+# ════════════════════════════════════════════════════════════════════════════
+global_database_defaults:
+  dialect: "postgres"
+  encoding: "UTF8"
+  timezone: "UTC"
+  logging:
+    log_queries: false
+    slow_query_threshold_ms: 200
+    log_level: "warn"  # debug | info | warn | error
+
+# ════════════════════════════════════════════════════════════════════════════
+# ENVIRONMENTS
+# Active environment is selected by the AETHEL_ENV environment variable.
+# Default: "development"
+# ════════════════════════════════════════════════════════════════════════════
+environments:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # DEVELOPMENT — local developer machine, Docker Compose, or CI container
+  # ──────────────────────────────────────────────────────────────────────────
+  development:
+    connection:
+      host: "127.0.0.1"
+      port: 5432
+      database: "aethel_workspace_dev"
+      user: "aethel_dev_user"
+      # Password: set AETHEL_DB_PASSWORD=<your_local_password>
+      ssl_mode: "disable"
+      # Set to env var name (e.g. "AETHEL_DB_DSN") to use a full DSN.
+      connection_string_env: ""
+    pooling:
+      max_open_connections: 25
+      max_idle_connections: 5
+      connection_max_lifetime_minutes: 15
+      connection_max_idle_time_minutes: 5
+    migrations:
+      directory: "./internal/database/migrations"
+      auto_run_on_startup: true
+      table_name: "schema_migrations_history"
+      lock_timeout_seconds: 60
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # STAGING — shared integration environment; mirrors prod topology
+  # ──────────────────────────────────────────────────────────────────────────
+  staging:
+    connection:
+      host: "staging-pg.internal"
+      port: 5432
+      database: "aethel_workspace_stg"
+      user: "aethel_stg_app"
+      # Password: set AETHEL_DB_PASSWORD in the staging secrets manager
+      ssl_mode: "require"
+      ssl_root_cert_path: ""
+      connection_string_env: "AETHEL_DB_DSN"
+    pooling:
+      max_open_connections: 50
+      max_idle_connections: 10
+      connection_max_lifetime_minutes: 30
+      connection_max_idle_time_minutes: 10
+    migrations:
+      directory: "./internal/database/migrations"
+      # Run via CI deploy pipeline: aethel migrate up
+      auto_run_on_startup: false
+      table_name: "schema_migrations_history"
+      lock_timeout_seconds: 120
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # PRODUCTION — HA cluster; migrations run out-of-band before deploy
+  # ──────────────────────────────────────────────────────────────────────────
+  production:
+    connection:
+      host: "prod-pg-primary.internal"
+      port: 5432
+      database: "aethel_workspace_prod"
+      user: "aethel_prod_app"
+      # Password: injected by the production secrets manager (Vault / K8s).
+      ssl_mode: "verify-full"
+      ssl_root_cert_path: "/etc/ssl/certs/aethel-pg-root.crt"
+      connection_string_env: "AETHEL_DB_DSN"
+    pooling:
+      max_open_connections: 100
+      max_idle_connections: 25
+      connection_max_lifetime_minutes: 60
+      connection_max_idle_time_minutes: 15
+    migrations:
+      directory: "./internal/database/migrations"
+      auto_run_on_startup: false  # NEVER auto-run in production
+      table_name: "schema_migrations_history"
+      lock_timeout_seconds: 300
+
+# ════════════════════════════════════════════════════════════════════════════
+# SCHEMA CUSTOMISATION
+# IT departments can rename tables and enum types here.
+# Changes take effect on the NEXT migration run.
+# To rename an existing table, a dedicated ALTER TABLE migration is required.
+# ════════════════════════════════════════════════════════════════════════════
+schema:
+  default_schema: "public"
+
+  # Map canonical table names to deployment-specific names.
+  # Leave empty ({}) to use canonical names for all tables.
+  # Example: dispatches: "dak_dispatches"
+  name_aliases: {}
+
+  # Map canonical PostgreSQL enum type names to deployment-specific names.
+  # Leave empty ({}) to use canonical enum names.
+  # Example: priority_level: "urgency_class"
+  enum_aliases: {}
+
+# ════════════════════════════════════════════════════════════════════════════
+# PARTITIONING
+# Configures the range-partition strategy for append-only tables.
+# ════════════════════════════════════════════════════════════════════════════
+partitioning:
+  audit_ledger:
+    type: "range"
+    column: "created_at"
+    interval: "monthly"
+    retention_policy:
+      enabled: false
+      # 7 years — adjust to match your compliance requirement.
+      retain_months: 84
+
+# ════════════════════════════════════════════════════════════════════════════
+# POSTGRESQL EXTENSIONS
+# The migration runner executes CREATE EXTENSION IF NOT EXISTS for each
+# entry in "required". A missing required extension is a fatal error.
+# ════════════════════════════════════════════════════════════════════════════
+extensions:
+  required:
+    - "uuid-ossp"  # gen_random_uuid() — primary key generation
+    - "pgcrypto"   # digest() — SHA-256 hashing for cryptographic chains
+    - "pg_trgm"    # GIN trigram indexes for fuzzy name search
+  optional:
+    # Query performance monitoring — strongly recommended for production.
+    - "pg_stat_statements"
+
+# ════════════════════════════════════════════════════════════════════════════
+# PERFORMANCE GUARDRAILS
+# These are set as session-level PostgreSQL parameters on each connection.
+# They act as a safety net against runaway queries.
+# ════════════════════════════════════════════════════════════════════════════
+performance:
+  # 30 s hard cap; individual queries in server-queries.yaml can lower this.
+  statement_timeout_ms: 30000
+  # Kills idle transactions that hold locks after this threshold.
+  idle_in_transaction_timeout_ms: 10000
+  # Aborts statements waiting on a lock beyond this threshold.
+  lock_timeout_ms: 5000

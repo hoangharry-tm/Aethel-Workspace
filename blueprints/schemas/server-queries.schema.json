@@ -1,0 +1,107 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "aethel-server-queries-blueprint",
+  "title": "Aethel Server Queries Blueprint",
+  "description": "Externalizes SQL queries for aethel-core (Go backend). See docs/server-blueprint-conventions.md §2.",
+  "type": "object",
+  "required": ["metadata", "global_query_defaults", "queries"],
+  "additionalProperties": false,
+  "properties": {
+
+    "metadata": {
+      "type": "object",
+      "description": "Blueprint version and loader behavior.",
+      "required": ["version", "engine_target", "strict_validation"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "SemVer.",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "examples": ["1.0.0"]
+        },
+        "engine_target": {
+          "type": "string",
+          "description": "SQL dialect variant.",
+          "examples": ["postgresql-16-sql"]
+        },
+        "strict_validation": {
+          "type": "boolean",
+          "description": "When true, unknown fields cause a fatal startup error."
+        }
+      }
+    },
+
+    "global_query_defaults": {
+      "type": "object",
+      "description": "Defaults applied to all queries unless overridden per-query.",
+      "additionalProperties": false,
+      "properties": {
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Default per-query timeout in milliseconds."
+        },
+        "enable_query_plan_caching": {
+          "type": "boolean",
+          "description": "Enable PREPARE / prepared statement reuse for named queries."
+        },
+        "max_rows_per_page": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Default LIMIT value to prevent accidentally unbounded queries."
+        }
+      }
+    },
+
+    "queries": {
+      "type": "object",
+      "description": "Named SQL statements grouped by domain pillar (dispatch, workflow, governance, admin, reports, search).",
+      "additionalProperties": {
+        "type": "object",
+        "description": "A group of related queries (e.g. dispatch, workflow, governance).",
+        "additionalProperties": {
+          "type": "object",
+          "description": "A single named query.",
+          "required": ["statement", "params"],
+          "additionalProperties": false,
+          "properties": {
+            "statement": {
+              "type": "string",
+              "description": "Raw PostgreSQL SQL. Positional parameters use $1, $2, ... notation."
+            },
+            "params": {
+              "type": "array",
+              "description": "Ordered list of PostgreSQL type strings, one per positional parameter.",
+              "items": {
+                "type": "string",
+                "description": "PostgreSQL type name.",
+                "examples": ["uuid", "varchar", "text", "integer", "bigint", "boolean", "timestamptz", "inet", "jsonb", "smallint"]
+              }
+            },
+            "timeout_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Per-query timeout override. Overrides global_query_defaults.timeout_ms."
+            },
+            "cache_ttl_seconds": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Result cache TTL in seconds. 0 = no caching."
+            },
+            "required_permission": {
+              "type": "string",
+              "description": "RBAC permission required to execute this query. Enforced by middleware.",
+              "examples": ["dispatch.view", "workflow.approve", "admin.audit", "archive.view"]
+            },
+            "description": {
+              "type": "string",
+              "description": "Documentation string for this query."
+            }
+          }
+        }
+      }
+    }
+
+  }
+}

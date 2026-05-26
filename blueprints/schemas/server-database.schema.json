@@ -1,0 +1,295 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "aethel-server-database-blueprint",
+  "title": "Aethel Server Database Blueprint",
+  "description": "Configures PostgreSQL runtime for aethel-core (Go backend). See docs/server-blueprint-conventions.md §1.",
+  "type": "object",
+  "required": ["metadata", "global_database_defaults", "environments", "schema"],
+  "additionalProperties": false,
+  "properties": {
+
+    "metadata": {
+      "type": "object",
+      "description": "Blueprint version and loader behavior.",
+      "required": ["version", "engine_target", "strict_validation"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "SemVer. Bump minor on new fields, major on breaking changes.",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "examples": ["1.0.0"]
+        },
+        "engine_target": {
+          "type": "string",
+          "description": "Minimum PostgreSQL version required by the migration set.",
+          "examples": ["postgresql-16+"]
+        },
+        "strict_validation": {
+          "type": "boolean",
+          "description": "When true, unknown fields in this file cause a fatal startup error."
+        }
+      }
+    },
+
+    "global_database_defaults": {
+      "type": "object",
+      "description": "Defaults applied to all environments unless overridden.",
+      "additionalProperties": false,
+      "properties": {
+        "dialect": {
+          "type": "string",
+          "description": "Fixed to postgres. Do not change.",
+          "enum": ["postgres"]
+        },
+        "encoding": {
+          "type": "string",
+          "description": "Database character encoding.",
+          "examples": ["UTF8"]
+        },
+        "timezone": {
+          "type": "string",
+          "description": "All timestamptz values are stored in this timezone.",
+          "examples": ["UTC"]
+        },
+        "logging": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "log_queries": {
+              "type": "boolean",
+              "description": "Log every SQL statement. Very high volume — disable in production."
+            },
+            "slow_query_threshold_ms": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Queries exceeding this duration (ms) are always logged."
+            },
+            "log_level": {
+              "type": "string",
+              "enum": ["debug", "info", "warn", "error"],
+              "description": "Logging verbosity level."
+            }
+          }
+        }
+      }
+    },
+
+    "environments": {
+      "type": "object",
+      "description": "Per-environment connection, pooling, and migration config. Active env is selected by AETHEL_ENV.",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+
+          "connection": {
+            "type": "object",
+            "description": "PostgreSQL connection parameters.",
+            "required": ["host", "port", "database", "user", "ssl_mode"],
+            "additionalProperties": false,
+            "properties": {
+              "host": {
+                "type": "string",
+                "description": "Hostname or IP of the PostgreSQL server."
+              },
+              "port": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535,
+                "description": "PostgreSQL port (usually 5432)."
+              },
+              "database": {
+                "type": "string",
+                "description": "Database name."
+              },
+              "user": {
+                "type": "string",
+                "description": "Database role/user. Never store passwords here — use AETHEL_DB_PASSWORD."
+              },
+              "ssl_mode": {
+                "type": "string",
+                "enum": ["disable", "require", "verify-ca", "verify-full"],
+                "description": "TLS mode for the connection."
+              },
+              "ssl_root_cert_path": {
+                "type": "string",
+                "description": "Path to PEM CA certificate. Required when ssl_mode is verify-full."
+              },
+              "connection_string_env": {
+                "type": "string",
+                "description": "Name of an env var holding a full postgres:// DSN. Overrides all other connection fields when set."
+              }
+            }
+          },
+
+          "pooling": {
+            "type": "object",
+            "description": "Connection pool sizing. max_open_connections across all instances should not exceed PG max_connections minus 10.",
+            "additionalProperties": false,
+            "properties": {
+              "max_open_connections": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Maximum total connections to the PostgreSQL server."
+              },
+              "max_idle_connections": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Idle connections kept alive in the pool."
+              },
+              "connection_max_lifetime_minutes": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Force-recycle connections after N minutes."
+              },
+              "connection_max_idle_time_minutes": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Close idle connections after N minutes of inactivity."
+              }
+            }
+          },
+
+          "migrations": {
+            "type": "object",
+            "description": "Migration runner configuration.",
+            "additionalProperties": false,
+            "properties": {
+              "directory": {
+                "type": "string",
+                "description": "Path to migration files, relative to the binary working directory."
+              },
+              "auto_run_on_startup": {
+                "type": "boolean",
+                "description": "Run pending migrations on startup. Never set to true in production."
+              },
+              "table_name": {
+                "type": "string",
+                "description": "Table used to track applied migrations."
+              },
+              "lock_timeout_seconds": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Advisory lock timeout — prevents two processes running migrations concurrently."
+              }
+            }
+          }
+
+        }
+      }
+    },
+
+    "schema": {
+      "type": "object",
+      "description": "Schema name and table/enum alias map. Aliases let IT rename tables without touching SQL files.",
+      "additionalProperties": false,
+      "properties": {
+        "default_schema": {
+          "type": "string",
+          "description": "PostgreSQL schema (namespace) for all tables.",
+          "default": "public"
+        },
+        "name_aliases": {
+          "type": "object",
+          "description": "Map of canonical table names to deployed names. Omit a key to use the canonical name.",
+          "additionalProperties": { "type": "string" },
+          "examples": [{ "dispatches": "dak_dispatches", "users": "employees" }]
+        },
+        "enum_aliases": {
+          "type": "object",
+          "description": "Map of canonical PostgreSQL enum type names to deployed names.",
+          "additionalProperties": { "type": "string" },
+          "examples": [{ "priority_level": "urgency_class" }]
+        }
+      }
+    },
+
+    "partitioning": {
+      "type": "object",
+      "description": "Range-partition strategies for large append-only tables.",
+      "additionalProperties": false,
+      "properties": {
+        "audit_ledger": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["range"],
+              "description": "Partition type. Only range is supported in v1."
+            },
+            "column": {
+              "type": "string",
+              "description": "Partition key column (must be timestamptz).",
+              "examples": ["created_at"]
+            },
+            "interval": {
+              "type": "string",
+              "enum": ["monthly", "quarterly", "yearly"],
+              "description": "How frequently new partitions are created."
+            },
+            "retention_policy": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enable automatic dropping of old partitions."
+                },
+                "retain_months": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Number of months of data to retain."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "extensions": {
+      "type": "object",
+      "description": "PostgreSQL extensions to install. Missing required extensions cause a fatal startup error.",
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Extensions that must be present. The migrator runs CREATE EXTENSION IF NOT EXISTS for each."
+        },
+        "optional": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Extensions that improve performance but are not mandatory. Missing ones log a warning."
+        }
+      }
+    },
+
+    "performance": {
+      "type": "object",
+      "description": "Session-level PostgreSQL parameters set on each pool connection.",
+      "additionalProperties": false,
+      "properties": {
+        "statement_timeout_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Hard limit on statement execution time (ms). 0 = disabled."
+        },
+        "idle_in_transaction_timeout_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Kills idle transactions holding locks after this threshold (ms)."
+        },
+        "lock_timeout_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Aborts statements waiting on a lock for longer than this threshold (ms)."
+        }
+      }
+    }
+
+  }
+}
