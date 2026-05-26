@@ -1,0 +1,314 @@
+%%{init: {"theme": "default", "er": {"diagramPadding": 20}}}%%
+erDiagram
+
+  %% ═══════════════════════════════════════════════════════════════════════════
+  %% TENANCY & IDENTITY
+  %% ═══════════════════════════════════════════════════════════════════════════
+
+  ORGANIZATIONS {
+    uuid         id             PK
+    varchar_255  name
+    varchar_100  slug           "UK — URL-safe tenant identifier"
+    boolean      is_active
+    timestamptz  created_at
+    timestamptz  updated_at
+  }
+
+  DEPARTMENTS {
+    uuid         id                      PK
+    uuid         organization_id         FK
+    uuid         parent_department_id    FK "nullable — self-ref hierarchy"
+    varchar_255  name
+    varchar_50   code                    "nullable — short dept code"
+    boolean      is_active
+    timestamptz  created_at
+    timestamptz  updated_at
+  }
+
+  USERS {
+    uuid         id                      PK
+    uuid         organization_id         FK
+    uuid         department_id           FK
+    varchar_255  email_address           "UK scoped to org"
+    varchar_255  full_name
+    varchar_255  job_title               "nullable"
+    varchar_20   role                    "ADMIN|RECEPTION|USER|SYS_ADMIN"
+    boolean      is_active
+    varchar_255  password_hash
+    smallint     failed_login_attempts   "default 0"
+    timestamptz  locked_until            "nullable — account lockout"
+    timestamptz  last_login_at           "nullable"
+    timestamptz  created_at
+    timestamptz  updated_at
+  }
+
+  USER_SESSIONS {
+    uuid         id                  PK
+    uuid         user_id             FK
+    varchar_255  session_token_hash  "UK — stored hash of bearer token"
+    timestamptz  expires_at
+    inet         client_ip_address   "nullable"
+    text         user_agent          "nullable"
+    timestamptz  created_at
+  }
+
+  PASSWORD_RESET_TOKENS {
+    uuid         id          PK
+    uuid         user_id     FK
+    varchar_255  token_hash  "UK — one-time use"
+    timestamptz  expires_at
+    timestamptz  used_at     "nullable — set on first use"
+    timestamptz  created_at
+  }
+
+  NOTIFICATION_PREFERENCES {
+    uuid     id                       PK
+    uuid     user_id                  FK "UK — one row per user"
+    boolean  in_app_enabled           "default true"
+    boolean  email_enabled            "default true"
+    smallint reminder_interval_hours  "default 24"
+  }
+
+  %% ═══════════════════════════════════════════════════════════════════════════
+  %% PILLAR 1 — DAK DIARIZATION (Dispatch Tracking)
+  %% ═══════════════════════════════════════════════════════════════════════════
+
+  DOCUMENT_TYPES {
+    uuid         id                    PK
+    uuid         organization_id       FK
+    varchar_255  name
+    text         description           "nullable"
+    varchar_20   default_urgency_level "ROUTINE|PRIORITY|IMMEDIATE"
+    boolean      is_active
+    smallint     sort_order            "for alphabetical ordering"
+    timestamptz  created_at
+    timestamptz  updated_at
+  }
+
+  DISPATCHES {
+    uuid         id                          PK
+    uuid         organization_id             FK
+    varchar_50   tracking_number             "UK — system-generated, QR-able"
+    varchar_10   direction                   "INBOUND|OUTBOUND"
+    uuid         document_type_id            FK
+    varchar_255  sender_name
+    varchar_255  sender_organization         "nullable"
+    varchar_255  recipient_name              "nullable — outbound only"
+    varchar_255  recipient_organization      "nullable — outbound only"
+    text         recipient_address           "nullable — outbound only"
+    uuid         assigned_user_id            FK "nullable — resolved recipient"
+    uuid         assigned_department_id      FK "nullable — routing target dept"
+    uuid         submitted_by_user_id        FK "Reception or User who logged it"
+    varchar_20   priority_level              "ROUTINE|PRIORITY|IMMEDIATE"
+    varchar_30   status_state                "see status state machine"
+    text         subject_line               "nullable"
+    varchar_100  delivery_mode              "nullable — courier|hand|post"
+    boolean      is_manually_routed         "true when Reception overrode suggestion"
+    uuid         original_suggested_user_id FK "nullable — before manual override"
+    timestamptz  overdue_at                 "nullable — computed SLA deadline"
+    timestamptz  acknowledged_at            "nullable"
+    uuid         acknowledged_by_user_id    FK "nullable"
+    jsonb        handoff_signature_data     "nullable — PIN/signature blob"
+    boolean      is_escalated
+    timestamptz  created_at
+    timestamptz  updated_at
+  }
+
+  DISPATCH_ATTACHMENTS {
+    uuid         id                    PK
+    uuid         dispatch_id           FK
+    varchar_500  file_name
+    bigint       file_size_bytes
+    varchar_100  mime_type
+    text         storage_path          "object store path or local FS"
+    uuid         uploaded_by_user_id   FK
+    timestamptz  created_at
+  }
+
+  DISPATCH_EVENTS {
+    uuid         id                      PK
+    uuid         dispatch_id             FK
+    uuid         routing_rule_id         FK "nullable — set when rule applied"
+    smallint     routing_stop_order      "nullable — multi-stop position"
+    varchar_50   event_type              "see event_type enum"
+    uuid         actor_user_id           FK "nullable — system events have no actor"
+    uuid         target_user_id          FK "nullable"
+    uuid         target_department_id    FK "nullable"
+    varchar_20   stop_status             "nullable — PENDING|CONFIRMED|REJECTED|SKIPPED"
+    text         note                    "nullable — free-text remark"
+    jsonb        metadata                "nullable — event-specific payload"
+    timestamptz  created_at
+  }
+
+  %% event_type enum values:
+  %% CREATED, ROUTING_APPLIED, ROUTING_MANUAL_OVERRIDE,
+  %% STOP_NOTIFIED, STOP_CONFIRMED, STOP_REJECTED, STOP_SKIPPED,
+  %% HANDOFF_ATTEMPTED, DELIVERED, ACKNOWLEDGED,
+  %% ESCALATED, ESCALATION_CLEARED, STATUS_CHANGED
+
+  ROUTING_RULES {
+    uuid         id                   PK
+    uuid         organization_id      FK
+    varchar_255  name
+    int          priority_order       "lower integer = higher priority"
+    boolean      is_active
+    boolean      is_multi_stop        "enables ordered routing chain"
+    uuid         created_by_user_id   FK
+    timestamptz  created_at
+    timestamptz  updated_at
+  }
+
+  ROUTING_RULE_CONDITIONS {
+    uuid         id               PK
+    uuid         routing_rule_id  FK
+    varchar_50   condition_type   "DOCUMENT_TYPE|SENDER_NAME|SENDER_ORG|URGENCY_LEVEL"
+    varchar_500  condition_value
+    varchar_20   match_operator   "EQUALS|CONTAINS|STARTS_WITH|REGEX"
+  }
+
+  ROUTING_RULE_DESTINATIONS {
+    uuid     id                     PK
+    uuid     routing_rule_id        FK
+    smallint stop_order             "1-based; all stops for single-stop rules = 1"
+    uuid     target_user_id         FK "nullable — mutually exclusive with dept"
+    uuid     target_department_id   FK "nullable"
+    boolean  confirmation_required  "default true"
+  }
+
+  %% ═══════════════════════════════════════════════════════════════════════════
+  %% PILLAR 2 — GREEN NOTING CANVAS (Minute Sheets & Approval Chain)
+  %% ═══════════════════════════════════════════════════════════════════════════
+
+  MINUTE_SHEETS {
+    uuid         id           PK
+    uuid         dispatch_id  FK "UK — exactly one sheet per dispatch"
+    timestamptz  created_at
+    timestamptz  updated_at
+  }
+
+  GREEN_NOTES {
+    uuid         id                  PK
+    uuid         minute_sheet_id     FK
+    int          sequence_order      "1-based; UK with minute_sheet_id"
+    uuid         author_officer_id   FK
+    text         content_body
+    varchar_512  cryptographic_hash  "SHA-256(content_body || sequence_order || author_id)"
+    varchar_512  previous_hash       "nullable — null on first note; forms chain"
+    boolean      is_signed
+    text         digital_signature   "nullable — raw signature blob"
+    timestamptz  created_at          "immutable after insert"
+  }
+
+  %% ═══════════════════════════════════════════════════════════════════════════
+  %% NOTIFICATIONS & ESCALATION
+  %% ═══════════════════════════════════════════════════════════════════════════
+
+  NOTIFICATIONS {
+    uuid         id                  PK
+    uuid         organization_id     FK
+    uuid         recipient_user_id   FK
+    uuid         dispatch_id         FK "nullable"
+    varchar_50   type                "DOCUMENT_ARRIVAL|REMINDER|ESCALATION|SYSTEM"
+    varchar_500  title
+    text         body                "nullable"
+    boolean      is_read
+    timestamptz  read_at             "nullable"
+    timestamptz  email_sent_at       "nullable"
+    boolean      email_failed
+    timestamptz  created_at
+  }
+
+  ESCALATION_RULES {
+    uuid         id                      PK
+    uuid         organization_id         FK
+    varchar_255  name
+    int          trigger_hours           "hours since last status change"
+    uuid         escalate_to_user_id     FK "nullable — specific target"
+    varchar_20   escalate_to_role        "nullable — ADMIN fallback"
+    boolean      is_active
+    timestamptz  created_at
+    timestamptz  updated_at
+  }
+
+  %% ═══════════════════════════════════════════════════════════════════════════
+  %% ADMIN CONFIGURATION
+  %% ═══════════════════════════════════════════════════════════════════════════
+
+  SYSTEM_SETTINGS {
+    uuid         id                    PK
+    uuid         organization_id       FK "UK with key"
+    varchar_255  key                   "UK with organization_id"
+    text         value
+    varchar_20   value_type            "STRING|INTEGER|BOOLEAN|JSON"
+    text         description           "nullable"
+    uuid         updated_by_user_id    FK "nullable"
+    timestamptz  updated_at
+  }
+
+  BRANDING_CONFIGS {
+    uuid         id                    PK
+    uuid         organization_id       FK "UK — one config per org"
+    text         logo_file_path        "nullable"
+    varchar_50   logo_mime_type        "nullable — image/png|image/svg+xml"
+    varchar_7    primary_brand_color   "nullable — hex e.g. #4f46e5"
+    uuid         updated_by_user_id    FK "nullable"
+    timestamptz  updated_at
+  }
+
+  %% ═══════════════════════════════════════════════════════════════════════════
+  %% PILLAR 3 — RBAC AUDIT LEDGER (Immutable, Range-Partitioned)
+  %% ═══════════════════════════════════════════════════════════════════════════
+
+  AUDIT_LEDGER {
+    bigserial    id                    PK "partitioned; local sequence per partition"
+    uuid         organization_id       "NOT FK — immutable even if org deleted"
+    uuid         actor_user_id         FK "ON DELETE NO ACTION"
+    varchar_100  action_event_type     "see audit event type catalogue"
+    varchar_100  target_resource_type  "nullable — dispatch|user|routing_rule|setting"
+    uuid         target_resource_id    "nullable"
+    jsonb        payload_snapshot      "nullable — point-in-time snapshot of record"
+    varchar_128  payload_checksum      "SHA-256 of payload_snapshot"
+    varchar_128  previous_checksum     "nullable — chained hash for tamper detection"
+    inet         client_ip_address     "nullable"
+    text         user_agent            "nullable"
+    timestamptz  created_at            "partition key — RANGE by month"
+  }
+
+  %% ═══════════════════════════════════════════════════════════════════════════
+  %% RELATIONSHIPS
+  %% ═══════════════════════════════════════════════════════════════════════════
+
+  ORGANIZATIONS        ||--|{  DEPARTMENTS              : "owns"
+  ORGANIZATIONS        ||--|{  USERS                    : "owns"
+  ORGANIZATIONS        ||--|{  DOCUMENT_TYPES           : "owns"
+  ORGANIZATIONS        ||--|{  DISPATCHES               : "owns"
+  ORGANIZATIONS        ||--|{  ROUTING_RULES            : "owns"
+  ORGANIZATIONS        ||--|{  NOTIFICATIONS            : "owns"
+  ORGANIZATIONS        ||--|{  ESCALATION_RULES         : "owns"
+  ORGANIZATIONS        ||--|{  SYSTEM_SETTINGS          : "owns"
+  ORGANIZATIONS        ||--o|  BRANDING_CONFIGS         : "has"
+
+  DEPARTMENTS          o|--o{  DEPARTMENTS              : "parent_of"
+  DEPARTMENTS          ||--o{  USERS                    : "employs"
+
+  USERS                ||--o{  USER_SESSIONS            : "has"
+  USERS                ||--o{  PASSWORD_RESET_TOKENS    : "has"
+  USERS                ||--o|  NOTIFICATION_PREFERENCES : "configures"
+
+  DOCUMENT_TYPES       ||--o{  DISPATCHES               : "classifies"
+
+  DISPATCHES           ||--o{  DISPATCH_ATTACHMENTS     : "has"
+  DISPATCHES           ||--o{  DISPATCH_EVENTS          : "records"
+  DISPATCHES           ||--o|  MINUTE_SHEETS            : "has"
+  DISPATCHES           ||--o{  NOTIFICATIONS            : "triggers"
+
+  ROUTING_RULES        ||--|{  ROUTING_RULE_CONDITIONS  : "has"
+  ROUTING_RULES        ||--|{  ROUTING_RULE_DESTINATIONS : "has"
+  ROUTING_RULES        ||--o{  DISPATCH_EVENTS          : "applied_via"
+
+  MINUTE_SHEETS        ||--o{  GREEN_NOTES              : "contains"
+
+  USERS                ||--o{  DISPATCHES               : "submits"
+  USERS                ||--o{  DISPATCH_EVENTS          : "acts_in"
+  USERS                ||--o{  GREEN_NOTES              : "authors"
+  USERS                ||--o{  AUDIT_LEDGER             : "recorded_in"
