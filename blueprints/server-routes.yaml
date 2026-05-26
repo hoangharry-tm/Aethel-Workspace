@@ -1,0 +1,475 @@
+# yaml-language-server: $schema=./schemas/server-routes.schema.json
+# Aethel Workspace — Server Routes Blueprint
+# Configures API route patterns, rate limits, timeouts, and JWT settings.
+# Engine: aethel-core-1.x  |  Blueprint version: 1.0.0
+#
+# Convention reference: docs/server-blueprint-conventions.md
+# Route design rationale: docs/architecture-api-routes.md
+#
+# ─── HOW THIS FILE WORKS ────────────────────────────────────────────────────
+# Default routes are hardcoded in the Go binary. This file is an OVERRIDE
+# layer — edit it to rename paths, adjust rate limits, or change timeouts
+# without touching Go source code.
+#
+# Adding a completely new route requires Go code. This file cannot define
+# routes that do not exist in the binary.
+#
+# ─── SECURITY NOTICE ────────────────────────────────────────────────────────
+# JWT signing keys are NEVER stored in this file.
+# Set AETHEL_JWT_SECRET (HS256) or AETHEL_JWT_RSA_PRIVATE_KEY (RS256)
+# as environment variables.
+# ────────────────────────────────────────────────────────────────────────────
+---
+metadata:
+  version: "1.0.0"
+  engine_target: "aethel-core-1.x"
+  strict_validation: true
+
+# ════════════════════════════════════════════════════════════════════════════
+# GLOBAL ROUTE DEFAULTS
+# Applied to every route unless overridden at group or route level.
+# ════════════════════════════════════════════════════════════════════════════
+global_route_defaults:
+  # Prefix prepended to all route patterns. Change to /api/v2 for a version migration.
+  base_path: "/api/v1"
+  # Maximum handler execution time before the request context is cancelled.
+  timeout_ms: 10000
+  # Token bucket rate limit: requests per minute per IP (unauthenticated)
+  # or per user (authenticated). Set to 0 to disable in-process limiting.
+  rate_limit_rpm: 600
+
+# ════════════════════════════════════════════════════════════════════════════
+# AUTHENTICATION CONFIGURATION
+# JWT algorithm and token lifetime. Key material is always from env vars.
+# ════════════════════════════════════════════════════════════════════════════
+auth:
+  # HS256 = shared secret (AETHEL_JWT_SECRET env var)
+  # RS256 = asymmetric keypair (AETHEL_JWT_RSA_PRIVATE_KEY env var, PEM encoded)
+  jwt_algorithm: "RS256"
+  # Access token lifetime. Short-lived — validated without a DB query.
+  access_token_ttl_minutes: 15
+  # Refresh token lifetime. Stored in user_sessions table.
+  refresh_token_ttl_days: 7
+  # Argon2id cost parameters for password hashing.
+  # Increase memory_kib for higher security margin if the server can afford it.
+  argon2id:
+    memory_kib: 65536    # 64 MiB
+    iterations: 3
+    parallelism: 4
+    salt_length: 16
+    key_length: 32
+
+# ════════════════════════════════════════════════════════════════════════════
+# BACKGROUND WORKER
+# ════════════════════════════════════════════════════════════════════════════
+worker:
+  # How often the escalation rule evaluator runs. 60 seconds is appropriate
+  # for most deployments. Lower values increase database load.
+  escalation_tick_seconds: 60
+
+# ════════════════════════════════════════════════════════════════════════════
+# ROUTE GROUPS
+# Named groups with scoped permissions and optional rate limit overrides.
+# Routes within a group inherit the group's permission unless they declare
+# their own. The `permission` field on each route is REQUIRED — the loader
+# rejects any route without one.
+# ════════════════════════════════════════════════════════════════════════════
+route_groups:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # AUTH — public endpoints; no JWT required
+  # ──────────────────────────────────────────────────────────────────────────
+  auth:
+    permission: "public"
+    # Lower rate limit to slow credential stuffing without Redis.
+    rate_limit_rpm: 60
+    routes:
+      - method: POST
+        pattern: "/auth/login"
+        handler: "handlers.auth.Login"
+        permission: "public"
+        description: "Authenticate with email + password; receive access + refresh tokens."
+
+      - method: POST
+        pattern: "/auth/refresh"
+        handler: "handlers.auth.Refresh"
+        permission: "public"
+        description: "Exchange a valid refresh token for a new access token."
+
+      - method: POST
+        pattern: "/auth/logout"
+        handler: "handlers.auth.Logout"
+        permission: "dispatch.view"
+        description: "Revoke the current session. Requires a valid access token."
+
+      - method: POST
+        pattern: "/auth/password-reset/request"
+        handler: "handlers.auth.RequestPasswordReset"
+        permission: "public"
+        description: "Send a password reset link to the user's registered email."
+
+      - method: POST
+        pattern: "/auth/password-reset/confirm"
+        handler: "handlers.auth.ConfirmPasswordReset"
+        permission: "public"
+        description: "Apply a password reset token and set a new password."
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # DISPATCH — Pillar 1: DAK Diarization (inbound + outbound)
+  # Default audience: RECEPTION role. ADMIN can also read.
+  # ──────────────────────────────────────────────────────────────────────────
+  dispatch:
+    permission: "dispatch.view"
+    # Intake endpoints are mutation-heavy; lower limit to protect the router engine.
+    rate_limit_rpm: 300
+    routes:
+      - method: GET
+        pattern: "/dispatches"
+        handler: "handlers.dispatch.ListInbox"
+        permission: "dispatch.view"
+        description: "List active inbound dispatch queue for the current user's department, sorted by urgency then recency."
+
+      - method: POST
+        pattern: "/dispatches"
+        handler: "handlers.dispatch.Create"
+        permission: "dispatch.create"
+        timeout_ms: 15000
+        description: "Log a new inbound dispatch. Triggers the routing rule engine and appends a ROUTING_APPLIED event."
+
+      - method: GET
+        pattern: "/dispatches/{id:uuid}"
+        handler: "handlers.dispatch.GetByID"
+        permission: "dispatch.view"
+        description: "Full dispatch detail including status, assigned user/department, and event timeline."
+
+      - method: PATCH
+        pattern: "/dispatches/{id:uuid}/status"
+        handler: "handlers.dispatch.UpdateStatus"
+        permission: "dispatch.create"
+        description: "Update the status state of a dispatch."
+
+      - method: POST
+        pattern: "/dispatches/{id:uuid}/assign"
+        handler: "handlers.dispatch.Assign"
+        permission: "dispatch.assign"
+        description: "Manually assign a dispatch to a user or department. Overrides routing engine suggestion."
+
+      - method: POST
+        pattern: "/dispatches/{id:uuid}/acknowledge"
+        handler: "handlers.dispatch.Acknowledge"
+        permission: "dispatch.deliver"
+        description: "Record delivery acknowledgement. Transitions status to DELIVERED."
+
+      - method: GET
+        pattern: "/dispatches/outbound"
+        handler: "handlers.dispatch.ListOutbound"
+        permission: "dispatch.view"
+        description: "List the outbound dispatch queue."
+
+      - method: POST
+        pattern: "/dispatches/outbound"
+        handler: "handlers.dispatch.CreateOutbound"
+        permission: "dispatch.create"
+        timeout_ms: 15000
+        description: "Log a new outbound dispatch."
+
+      - method: GET
+        pattern: "/dispatches/{id:uuid}/attachments"
+        handler: "handlers.dispatch.ListAttachments"
+        permission: "dispatch.view"
+        description: "List file attachments for a dispatch."
+
+      - method: POST
+        pattern: "/dispatches/{id:uuid}/attachments"
+        handler: "handlers.dispatch.UploadAttachment"
+        permission: "dispatch.create"
+        timeout_ms: 30000
+        description: "Upload a file attachment. Stores to S3 if configured; rejects with 501 otherwise."
+
+      - method: DELETE
+        pattern: "/dispatches/{id:uuid}/attachments/{att_id:uuid}"
+        handler: "handlers.dispatch.DeleteAttachment"
+        permission: "dispatch.assign"
+        description: "Remove an attachment from a dispatch."
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # USER DOCUMENTS — dispatches assigned to the current user
+  # ──────────────────────────────────────────────────────────────────────────
+  user_documents:
+    permission: "workflow.view"
+    routes:
+      - method: GET
+        pattern: "/my-dispatches"
+        handler: "handlers.dispatch.ListMyDispatches"
+        permission: "workflow.view"
+        description: "List dispatches assigned to the authenticated user."
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # SEARCH — cross-pillar full-text search
+  # ──────────────────────────────────────────────────────────────────────────
+  search:
+    permission: "dispatch.view"
+    rate_limit_rpm: 120
+    routes:
+      - method: GET
+        pattern: "/search"
+        handler: "handlers.search.Search"
+        permission: "dispatch.view"
+        timeout_ms: 8000
+        description: "Full-text search across dispatches using pg_trgm. Supports filters: status, priority, date range, document type."
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # WORKFLOW — Pillar 2: Green Noting Canvas
+  # ──────────────────────────────────────────────────────────────────────────
+  workflow:
+    permission: "workflow.view"
+    routes:
+      - method: GET
+        pattern: "/dispatches/{id:uuid}/minute-sheet"
+        handler: "handlers.workflow.GetMinuteSheet"
+        permission: "workflow.view"
+        description: "Fetch the minute sheet with the full ordered green note timeline."
+
+      - method: GET
+        pattern: "/dispatches/{id:uuid}/green-notes"
+        handler: "handlers.workflow.ListGreenNotes"
+        permission: "workflow.view"
+        description: "List all green notes for a dispatch in ascending sequence order."
+
+      - method: POST
+        pattern: "/dispatches/{id:uuid}/green-notes"
+        handler: "handlers.workflow.AppendGreenNote"
+        permission: "workflow.approve"
+        description: "Append a new green note. Validates the hash chain before insert; rejects with 409 if chain is broken."
+
+      - method: POST
+        pattern: "/dispatches/{id:uuid}/minute-sheet/approve"
+        handler: "handlers.workflow.ApproveMinuteSheet"
+        permission: "workflow.approve"
+        description: "Mark the minute sheet as approved, transitioning the workflow to the next stage."
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # GOVERNANCE — Pillar 3: RBAC Audit Ledger
+  # Only SYS_ADMIN role can access these endpoints.
+  # ──────────────────────────────────────────────────────────────────────────
+  governance:
+    permission: "admin.audit"
+    rate_limit_rpm: 60
+    routes:
+      - method: GET
+        pattern: "/audit-log"
+        handler: "handlers.governance.QueryAuditLog"
+        permission: "admin.audit"
+        timeout_ms: 20000
+        description: "Query the audit ledger with date range, event type, and actor filters. Paginated."
+
+      - method: GET
+        pattern: "/audit-log/verify"
+        handler: "handlers.governance.VerifyChain"
+        permission: "admin.audit"
+        timeout_ms: 30000
+        description: "Re-compute the previous_checksum chain for a date range. Returns a list of broken links if tampering is detected."
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # NOTIFICATIONS
+  # ──────────────────────────────────────────────────────────────────────────
+  notifications:
+    permission: "dispatch.view"
+    routes:
+      - method: GET
+        pattern: "/notifications"
+        handler: "handlers.notifications.List"
+        permission: "dispatch.view"
+        description: "List recent notifications for the current user. Paginated."
+
+      - method: PATCH
+        pattern: "/notifications/{id:uuid}/read"
+        handler: "handlers.notifications.MarkRead"
+        permission: "dispatch.view"
+        description: "Mark a notification as read."
+
+      - method: GET
+        pattern: "/notifications/stream"
+        handler: "handlers.notifications.Stream"
+        permission: "dispatch.view"
+        # SSE connections are long-lived; disable the default handler timeout.
+        timeout_ms: 0
+        description: "SSE endpoint. Streams notification events to the authenticated user. Long-lived connection."
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # ADMIN — cross-pillar administration
+  # All routes require ADMIN role (admin.access permission).
+  # The audit-log sub-group (governance) requires SYS_ADMIN (admin.audit).
+  # ──────────────────────────────────────────────────────────────────────────
+  admin:
+    permission: "admin.access"
+    rate_limit_rpm: 120
+    routes:
+      # Users
+      - method: GET
+        pattern: "/admin/users"
+        handler: "handlers.admin.ListUsers"
+        permission: "admin.access"
+        description: "List all users in the organization. Supports filters: role, department, active status."
+
+      - method: POST
+        pattern: "/admin/users"
+        handler: "handlers.admin.CreateUser"
+        permission: "admin.access"
+        description: "Create a new user account. Sends a welcome email if SMTP is configured."
+
+      - method: GET
+        pattern: "/admin/users/{id:uuid}"
+        handler: "handlers.admin.GetUser"
+        permission: "admin.access"
+        description: "Get full user detail including role, department, and session count."
+
+      - method: PATCH
+        pattern: "/admin/users/{id:uuid}"
+        handler: "handlers.admin.UpdateUser"
+        permission: "admin.access"
+        description: "Update user profile, role, or department assignment."
+
+      - method: DELETE
+        pattern: "/admin/users/{id:uuid}"
+        handler: "handlers.admin.DeactivateUser"
+        permission: "admin.access"
+        description: "Deactivate a user account. Does not delete the record; sets deactivated_at timestamp."
+
+      # Document Types
+      - method: GET
+        pattern: "/admin/document-types"
+        handler: "handlers.admin.ListDocumentTypes"
+        permission: "admin.access"
+        description: "List the IT-managed document type catalogue."
+
+      - method: POST
+        pattern: "/admin/document-types"
+        handler: "handlers.admin.CreateDocumentType"
+        permission: "admin.access"
+        description: "Add a new document type to the catalogue."
+
+      - method: PATCH
+        pattern: "/admin/document-types/{id:uuid}"
+        handler: "handlers.admin.UpdateDocumentType"
+        permission: "admin.access"
+        description: "Update a document type name, description, or metadata."
+
+      - method: DELETE
+        pattern: "/admin/document-types/{id:uuid}"
+        handler: "handlers.admin.DeleteDocumentType"
+        permission: "admin.access"
+        description: "Remove a document type. Fails with 409 if any dispatch references this type."
+
+      # Routing Rules
+      - method: GET
+        pattern: "/admin/routing-rules"
+        handler: "handlers.admin.ListRoutingRules"
+        permission: "admin.access"
+        description: "List routing rules in priority order with their conditions and destinations."
+
+      - method: POST
+        pattern: "/admin/routing-rules"
+        handler: "handlers.admin.CreateRoutingRule"
+        permission: "admin.access"
+        description: "Create a routing rule with conditions and an ordered destination chain."
+
+      - method: PUT
+        pattern: "/admin/routing-rules/{id:uuid}"
+        handler: "handlers.admin.UpdateRoutingRule"
+        permission: "admin.access"
+        description: "Replace a routing rule definition in full."
+
+      - method: DELETE
+        pattern: "/admin/routing-rules/{id:uuid}"
+        handler: "handlers.admin.DeleteRoutingRule"
+        permission: "admin.access"
+        description: "Delete a routing rule. Logs ROUTING_RULE_MODIFIED audit event."
+
+      # Escalation Rules
+      - method: GET
+        pattern: "/admin/escalation-rules"
+        handler: "handlers.admin.ListEscalationRules"
+        permission: "admin.access"
+        description: "List all escalation rules with their threshold and action configuration."
+
+      - method: POST
+        pattern: "/admin/escalation-rules"
+        handler: "handlers.admin.CreateEscalationRule"
+        permission: "admin.access"
+        description: "Create an escalation rule."
+
+      - method: PUT
+        pattern: "/admin/escalation-rules/{id:uuid}"
+        handler: "handlers.admin.UpdateEscalationRule"
+        permission: "admin.access"
+        description: "Replace an escalation rule definition in full."
+
+      - method: DELETE
+        pattern: "/admin/escalation-rules/{id:uuid}"
+        handler: "handlers.admin.DeleteEscalationRule"
+        permission: "admin.access"
+        description: "Delete an escalation rule."
+
+      # Reports
+      - method: GET
+        pattern: "/admin/reports"
+        handler: "handlers.admin.GetReports"
+        permission: "admin.access"
+        timeout_ms: 20000
+        description: "Aggregated dispatch statistics: volume by period, by document type, by department. Supports date range filters."
+
+      # System Settings
+      - method: GET
+        pattern: "/admin/settings"
+        handler: "handlers.admin.GetSettings"
+        permission: "admin.access"
+        description: "Read system settings key-value store."
+
+      - method: PATCH
+        pattern: "/admin/settings"
+        handler: "handlers.admin.UpdateSettings"
+        permission: "admin.access"
+        description: "Update one or more system settings keys. Logs ADMIN_SETTINGS_CHANGED audit event."
+
+      # Branding
+      - method: GET
+        pattern: "/admin/branding"
+        handler: "handlers.admin.GetBranding"
+        permission: "admin.access"
+        description: "Read branding configuration: logo URL, organization name, primary color."
+
+      - method: PUT
+        pattern: "/admin/branding"
+        handler: "handlers.admin.UpdateBranding"
+        permission: "admin.access"
+        description: "Replace branding configuration in full."
+
+# ════════════════════════════════════════════════════════════════════════════
+# OVERRIDES
+# Renames default route patterns for deployment-specific conventions.
+# Both `default` and `custom` values must include the base_path.
+# The override applies to the pattern only — the handler and permission
+# are inherited from the default route definition.
+#
+# Example: A ministry that uses DAK terminology renames the dispatch routes:
+#   default: "/api/v1/dispatches"
+#   custom:  "/api/v1/dak/documents"
+#
+# Leave this section empty ({}) to use all default patterns.
+# ════════════════════════════════════════════════════════════════════════════
+overrides: []
+# Uncomment and fill in to override specific routes:
+#
+# overrides:
+#   - default: "/api/v1/dispatches"
+#     custom: "/api/v1/dak/documents"
+#
+#   - default: "/api/v1/dispatches/{id:uuid}"
+#     custom: "/api/v1/dak/documents/{id:uuid}"
+#
+#   - default: "/api/v1/dispatches/{id:uuid}/green-notes"
+#     custom: "/api/v1/dak/documents/{id:uuid}/notation"
+#
+#   - default: "/api/v1/audit-log"
+#     custom: "/api/v1/security/audit-trail"
