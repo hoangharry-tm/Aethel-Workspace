@@ -7,10 +7,11 @@ export default defineNuxtConfig({
 
   css: ["~/assets/css/main.css"],
 
+  components: [{ path: "~/components", pathPrefix: false }],
+
   modules: [
     "@nuxt/a11y",
     "@nuxt/eslint",
-    "@nuxt/hints",
     "@nuxt/image",
     "@nuxt/scripts",
     "@nuxt/test-utils",
