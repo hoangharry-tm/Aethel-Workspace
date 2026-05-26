@@ -1,0 +1,303 @@
+# Aethel Workspace — UI Components Blueprint
+# Maps logical application widgets to their visual params, state schemas, and composition rules.
+# Engine: Nuxt UI v4 + Vue 3
+
+metadata:
+  version: "1.0.0"
+  engine_target: "nuxt-ui-4.x"
+  strict_validation: true
+
+global_component_defaults:
+  icon_library: "lucide" # All icons from @iconify/lucide via Nuxt UI
+  no_emoji_icons: true
+  min_touch_target: "44px"
+  caching:
+    enable_swr: true
+    ttl_seconds: 300
+
+components:
+  # =========================================================================
+  # URGENCY BADGE — Inline status pill for dispatch priority level
+  # =========================================================================
+  urgency_badge:
+    id: "comp_urgency_badge"
+    path: "~/components/shared/UrgencyBadge.vue"
+    nuxt_ui_base: "UBadge"
+    props:
+      level:
+        type: "enum"
+        options: ["IMMEDIATE", "PRIORITY", "ROUTINE"]
+        required: true
+    visual_mapping:
+      IMMEDIATE:
+        variant: "soft"
+        color: "error"
+        icon: "i-lucide-zap"
+        label: "Immediate"
+      PRIORITY:
+        variant: "soft"
+        color: "warning"
+        icon: "i-lucide-alert-triangle"
+        label: "Priority"
+      ROUTINE:
+        variant: "soft"
+        color: "success"
+        icon: "i-lucide-minus"
+        label: "Routine"
+
+  # =========================================================================
+  # DOCUMENT STATUS BADGE — Pipeline state pill
+  # =========================================================================
+  document_status_badge:
+    id: "comp_doc_status_badge"
+    path: "~/components/shared/DocumentStatusBadge.vue"
+    nuxt_ui_base: "UBadge"
+    props:
+      status:
+        type: "enum"
+        options:
+          - "PENDING_ASSIGNMENT"
+          - "UNDER_REVIEW"
+          - "IN_TRANSIT"
+          - "ATTEMPTED_DELIVERY"
+          - "DELIVERED"
+          - "ESCALATED"
+          - "DISPATCHED"
+        required: true
+    visual_mapping:
+      PENDING_ASSIGNMENT:
+        variant: "soft"
+        color: "neutral"
+        icon: "i-lucide-clock"
+        label: "Pending Assignment"
+      UNDER_REVIEW:
+        variant: "soft"
+        color: "primary"
+        icon: "i-lucide-eye"
+        label: "Under Review"
+      IN_TRANSIT:
+        variant: "soft"
+        color: "info"
+        icon: "i-lucide-truck"
+        label: "In Transit"
+      ATTEMPTED_DELIVERY:
+        variant: "soft"
+        color: "warning"
+        icon: "i-lucide-alert-circle"
+        label: "Attempted Delivery"
+      DELIVERED:
+        variant: "soft"
+        color: "success"
+        icon: "i-lucide-check-circle"
+        label: "Delivered"
+      ESCALATED:
+        variant: "soft"
+        color: "error"
+        icon: "i-lucide-bell-ring"
+        label: "Escalated"
+      DISPATCHED:
+        variant: "soft"
+        color: "violet"
+        icon: "i-lucide-send"
+        label: "Dispatched"
+
+  # =========================================================================
+  # QUEUE CARD — Reception dashboard document card
+  # =========================================================================
+  queue_card:
+    id: "comp_queue_card"
+    path: "~/components/dispatch/QueueCard.vue"
+    nuxt_ui_base: "UCard"
+    layout: "horizontal"
+    card_structure:
+      left_accent_bar:
+        width: "4px"
+        color: "urgency_badge.color"
+      body:
+        row_1: ["tracking_id (mono xs)", "urgency_badge", "status_badge"]
+        row_2: ["subject_line (truncated lg)"]
+        row_3:
+          - "sender_name (muted sm)"
+          - "arrow-icon"
+          - "assigned_department (muted sm)"
+      footer:
+        left: "time_elapsed (xs muted)"
+        right: "action_button → /documents/[id]"
+    state_schema:
+      id: "uuid"
+      tracking_number: "string"
+      sender_name: "string"
+      subject_line: "string"
+      priority_level: "enum: IMMEDIATE | PRIORITY | ROUTINE"
+      status_state: "enum: PENDING_ASSIGNMENT | UNDER_REVIEW | IN_TRANSIT | ATTEMPTED_DELIVERY | DELIVERED | ESCALATED"
+      assigned_department: "string"
+      created_at: "timestamp"
+    events:
+      - name: "open_document"
+        trigger: "card click or action button"
+        action: "navigateTo(/documents/[id])"
+
+  # =========================================================================
+  # EVENT TIMELINE — Chronological audit trail for a document
+  # =========================================================================
+  event_timeline:
+    id: "comp_event_timeline"
+    path: "~/components/shared/EventTimeline.vue"
+    layout: "vertical_steps"
+    read_only: true
+    event_types:
+      LOGGED:
+        icon: "i-lucide-file-plus"
+        color: "primary"
+        label: "Document Logged"
+      ROUTED:
+        icon: "i-lucide-git-merge"
+        color: "primary"
+        label: "Auto-Routed"
+      ROUTING_OVERRIDDEN:
+        icon: "i-lucide-git-pull-request"
+        color: "warning"
+        label: "Routing Overridden"
+      NOTIFIED:
+        icon: "i-lucide-bell"
+        color: "info"
+        label: "Recipient Notified"
+      HANDOFF_ATTEMPTED:
+        icon: "i-lucide-user-check"
+        color: "warning"
+        label: "Handoff Attempted"
+      DELIVERED:
+        icon: "i-lucide-check-circle"
+        color: "success"
+        label: "Delivered"
+      ACKNOWLEDGED:
+        icon: "i-lucide-badge-check"
+        color: "success"
+        label: "Acknowledged by Recipient"
+      ESCALATED:
+        icon: "i-lucide-bell-ring"
+        color: "error"
+        label: "Escalated"
+    event_item_structure:
+      connector_line: "left-aligned vertical, 2px slate-200"
+      icon_dot: "16px circle with event color"
+      content:
+        actor: "user full name + role badge (sm)"
+        label: "event type label (md)"
+        note: "optional freetext (sm muted)"
+        timestamp: "absolute date + relative time (xs muted)"
+
+  # =========================================================================
+  # INTAKE FORM — Log incoming physical document (Pillar 1)
+  # =========================================================================
+  intake_form:
+    id: "comp_intake_form"
+    path: "~/components/dispatch/IntakeForm.vue"
+    nuxt_ui_base: "UForm"
+    layout:
+      desktop: "two_column"
+      mobile: "single_column"
+    fields:
+      col_left:
+        - id: "sender_name"
+          type: "UInput"
+          label: "Sender Name"
+          required: true
+          max_length: 150
+        - id: "sender_organization"
+          type: "UInput"
+          label: "Sender Organization"
+          required: false
+          max_length: 200
+        - id: "document_type"
+          type: "USelect"
+          label: "Document Type"
+          required: true
+          fetch: "GET /api/document-types"
+        - id: "received_date"
+          type: "UInput"
+          label: "Date Received"
+          required: true
+          input_type: "date"
+          default: "today"
+        - id: "delivery_mode"
+          type: "USelect"
+          label: "Delivery Mode"
+          required: true
+          options: ["POST", "COURIER", "HAND_DELIVERY", "EMAIL"]
+        - id: "subject_line"
+          type: "UTextarea"
+          label: "Subject / Description"
+          required: true
+          min_length: 10
+          max_length: 500
+          rows: 3
+        - id: "priority_level"
+          type: "USelect"
+          label: "Urgency Level"
+          required: true
+          options: ["ROUTINE", "PRIORITY", "IMMEDIATE"]
+          default: "ROUTINE"
+      col_right:
+        - id: "assigned_department_id"
+          type: "USelect"
+          label: "Auto-Suggested Department"
+          required: true
+          fetch: "GET /api/departments"
+          note: "Override allowed"
+        - id: "attachments"
+          type: "file_uploader"
+          label: "Attachment (PDF)"
+          allowed_extensions: [".pdf"]
+          max_mb: 25
+    validation:
+      custom_rules:
+        - "block_future_received_date"
+        - "sanitize_html_inputs"
+    submit_action:
+      endpoint: "POST /api/dispatches/inbound"
+      success_redirect: "/documents/[new_id]"
+      success_toast: "Document logged. Tracking slip ready."
+      print_tracking_slip: true
+
+  # =========================================================================
+  # NOTIFICATION ITEM — Single item in the notification drawer
+  # =========================================================================
+  notification_item:
+    id: "comp_notification_item"
+    path: "~/components/layout/NotificationItem.vue"
+    structure:
+      icon: "document urgency dot"
+      title: "subject_line (truncated)"
+      body: "event label + sender name (sm muted)"
+      time: "relative timestamp (xs muted)"
+      actions:
+        - { label: "View", action: "navigateTo(/documents/[id])" }
+        - { label: "Dismiss", action: "markRead(notification_id)" }
+    states:
+      unread: "border-l-2 border-primary-500 bg-primary-50/40"
+      read: "bg-transparent opacity-75"
+
+  # =========================================================================
+  # ROUTING RULE ROW — Admin drag-to-reorder table row
+  # =========================================================================
+  routing_rule_row:
+    id: "comp_routing_rule_row"
+    path: "~/components/admin/RoutingRuleRow.vue"
+    structure:
+      drag_handle: "i-lucide-grip-vertical (muted, cursor-grab)"
+      priority_number: "mono xs muted"
+      conditions_summary: "document_type + optional sender org (sm)"
+      destination: "department or user name with avatar (sm)"
+      multi_stop_indicator: "i-lucide-git-merge badge if stops > 1"
+      active_toggle: "UToggle"
+      actions_menu: "UDropdownMenu: Edit, Duplicate, Delete"
+    state_schema:
+      id: "uuid"
+      priority: "integer"
+      conditions:
+        document_type_id: "uuid | null"
+        sender_organization: "string | null"
+        urgency_level: "enum | null"
+      destinations: "array of { type: user|department, id: uuid, order: integer }"
+      is_active: "boolean"

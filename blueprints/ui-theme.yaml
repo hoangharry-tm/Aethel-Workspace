@@ -1,0 +1,152 @@
+# Aethel Workspace — UI Theme Blueprint
+# Design tokens baked into the frontend at compile time.
+# Engine: Tailwind CSS v4 + Nuxt UI v4
+
+metadata:
+  version: "1.0.0"
+  engine_target: "tailwind-css-4.x + nuxt-ui-4.x"
+  strict_validation: true
+
+global_defaults:
+  default_mode: "light"
+  fallback_theme: "aethel_workspace"
+  color_space: "oklch"
+  font_family_primary: "Inter"
+  accessibility:
+    force_minimum_contrast_ratio: "4.5:1"
+    enable_focus_rings: true
+
+themes:
+  aethel_workspace:
+    id: "theme_aethel"
+    name: "Aethel Modern SaaS"
+    nuxt_ui_config:
+      primary: "indigo"
+      neutral: "slate"
+
+    colors:
+      # Brand — Indigo (modern SaaS, trustworthy, approachable)
+      primary:
+        "50":  "#eef2ff"
+        "100": "#e0e7ff"
+        "200": "#c7d2fe"
+        "300": "#a5b4fc"
+        "400": "#818cf8"
+        "500": "#6366f1"
+        "600": "#4f46e5"   # interactive default
+        "700": "#4338ca"   # hover state
+        "800": "#3730a3"
+        "900": "#312e81"
+        "950": "#1e1b4b"
+
+      # Neutral — Slate (clean, editorial)
+      neutral:
+        "50":  "#f8fafc"   # canvas background
+        "100": "#f1f5f9"   # sidebar / muted surface
+        "200": "#e2e8f0"   # borders, dividers
+        "300": "#cbd5e1"
+        "400": "#94a3b8"
+        "500": "#64748b"   # muted / secondary text
+        "600": "#475569"
+        "700": "#334155"
+        "800": "#1e293b"
+        "900": "#0f172a"   # primary foreground text
+        "950": "#020617"
+
+      # Semantic
+      success: "#10b981"   # emerald-500
+      warning: "#f59e0b"   # amber-500
+      error:   "#ef4444"   # red-500
+      info:    "#0ea5e9"   # sky-500
+
+    urgency_state_system:
+      # Maps to dispatch priority_level values: IMMEDIATE, PRIORITY, ROUTINE
+      IMMEDIATE:
+        tailwind_bg:     "bg-rose-50"
+        tailwind_border: "border-rose-200"
+        tailwind_text:   "text-rose-700"
+        badge_classes:   "bg-rose-100 text-rose-700"
+        dot_color:       "bg-rose-500"
+        label:           "Immediate"
+        icon:            "i-lucide-zap"
+      PRIORITY:
+        tailwind_bg:     "bg-amber-50"
+        tailwind_border: "border-amber-200"
+        tailwind_text:   "text-amber-700"
+        badge_classes:   "bg-amber-100 text-amber-700"
+        dot_color:       "bg-amber-500"
+        label:           "Priority"
+        icon:            "i-lucide-alert-triangle"
+      ROUTINE:
+        tailwind_bg:     "bg-emerald-50"
+        tailwind_border: "border-emerald-200"
+        tailwind_text:   "text-emerald-700"
+        badge_classes:   "bg-emerald-100 text-emerald-700"
+        dot_color:       "bg-emerald-500"
+        label:           "Routine"
+        icon:            "i-lucide-minus"
+
+    document_status_system:
+      # Maps to dispatch status_state values
+      PENDING_ASSIGNMENT:
+        badge_classes: "bg-slate-100 text-slate-600"
+        label: "Pending Assignment"
+        icon: "i-lucide-clock"
+      UNDER_REVIEW:
+        badge_classes: "bg-indigo-100 text-indigo-700"
+        label: "Under Review"
+        icon: "i-lucide-eye"
+      IN_TRANSIT:
+        badge_classes: "bg-sky-100 text-sky-700"
+        label: "In Transit"
+        icon: "i-lucide-truck"
+      ATTEMPTED_DELIVERY:
+        badge_classes: "bg-amber-100 text-amber-700"
+        label: "Attempted Delivery"
+        icon: "i-lucide-alert-circle"
+      DELIVERED:
+        badge_classes: "bg-emerald-100 text-emerald-700"
+        label: "Delivered"
+        icon: "i-lucide-check-circle"
+      ESCALATED:
+        badge_classes: "bg-rose-100 text-rose-700"
+        label: "Escalated"
+        icon: "i-lucide-bell-ring"
+      DISPATCHED:
+        badge_classes: "bg-violet-100 text-violet-700"
+        label: "Dispatched"
+        icon: "i-lucide-send"
+
+    surfaces:
+      canvas:       "bg-slate-50"
+      panel:        "bg-white"
+      panel_border: "border border-slate-200"
+      sidebar:      "bg-white border-r border-slate-200"
+      topbar:       "bg-white border-b border-slate-200"
+      overlay:      "bg-slate-900/50 backdrop-blur-sm"
+      card_shadow:  "shadow-sm"
+
+typography_spec:
+  fonts:
+    sans: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
+    mono: "JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+  google_fonts_url: "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+  sizes:
+    xs:   { class: "text-xs font-normal tracking-wide",        size: "12px", use: "metadata, timestamps" }
+    sm:   { class: "text-sm font-normal leading-5",            size: "14px", use: "secondary body, table cells" }
+    base: { class: "text-sm font-normal leading-6",            size: "14px", use: "primary body text" }
+    md:   { class: "text-sm font-medium",                      size: "14px", use: "labels, button text, nav items" }
+    lg:   { class: "text-base font-semibold tracking-tight",   size: "16px", use: "card titles, section headers" }
+    xl:   { class: "text-lg font-bold tracking-tight",         size: "18px", use: "page headings" }
+    xxl:  { class: "text-2xl font-bold tracking-tight",        size: "24px", use: "display headings" }
+
+animation_tokens:
+  durations:
+    instant:    "75ms"
+    snappy:     "150ms"
+    normal:     "200ms"
+    structural: "300ms"
+  curves:
+    standard:   "ease-in-out"
+    decelerate: "ease-out"
+    accelerate: "ease-in"

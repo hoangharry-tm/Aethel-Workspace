@@ -1,0 +1,225 @@
+# Aethel Workspace — UI Layouts Blueprint
+# Defines page shells, responsive breakpoints, navigation trees, and slot definitions.
+# Engine: Nuxt 4 layouts system
+
+metadata:
+  version: "1.0.0"
+  engine_target: "nuxt-4.x"
+  strict_validation: true
+
+global_defaults:
+  breakpoints:
+    mobile:  "< 640px"
+    tablet:  "640px – 1023px"
+    desktop: "≥ 1024px"
+  transitions:
+    layout_change: "fade, 200ms ease-in-out"
+  error_boundary:
+    fallback_component: "GlobalErrorFallback"
+
+layouts:
+
+  # =========================================================================
+  # 1. AUTH LAYOUT — Login / password reset
+  # =========================================================================
+  auth:
+    id: "layout_auth"
+    file: "~/layouts/auth.vue"
+    root_class: "min-h-dvh bg-slate-50 flex flex-col items-center justify-center px-4"
+    slots:
+      - { name: "default", required: true }
+    regions:
+      header: { hidden: true }
+      sidebar: { hidden: true }
+      footer:
+        component: "AuthFooter"
+        props: { show_version: true, show_copyright: true }
+    middleware:
+      - "guest-only"
+    responsive:
+      mobile: "full-width centered card (max-w-sm)"
+      desktop: "wider centered card (max-w-md) with brand wordmark above"
+
+  # =========================================================================
+  # 2. WORKSPACE LAYOUT — Main e-office application shell
+  # =========================================================================
+  workspace:
+    id: "layout_workspace"
+    file: "~/layouts/workspace.vue"
+    root_class: "h-dvh flex overflow-hidden bg-slate-50"
+    middleware:
+      - "auth-required"
+    slots:
+      - { name: "default", required: true }
+
+    regions:
+
+      sidebar:
+        component: "WorkspaceSidebar"
+        file: "~/components/layout/WorkspaceSidebar.vue"
+        collapsible: true
+        default_state: "expanded"
+        responsive:
+          desktop: "fixed left sidebar, collapsible to icon-only (w-64 → w-16)"
+          tablet:  "hidden by default, slide-out drawer on hamburger tap"
+          mobile:  "slide-out drawer + bottom navigation bar for top-level routes"
+        width:
+          expanded: "w-64"
+          collapsed: "w-16"
+        props:
+          show_branding: true
+          brand_wordmark: "Aethel"
+          brand_icon: "i-lucide-building-2"
+        navigation_tree:
+          - group: "Reception"
+            required_permission: "dispatch.view"
+            roles: ["RECEPTION", "ADMIN"]
+            items:
+              - { label: "Dashboard",        icon: "i-lucide-layout-dashboard", route: "/dashboard" }
+              - { label: "Inbound",          icon: "i-lucide-inbox",            route: "/dispatch/inbound",  badge: "async:inbound_pending_count" }
+              - { label: "Outbound",         icon: "i-lucide-send",             route: "/dispatch/outbound" }
+          - group: "My Work"
+            required_permission: null
+            roles: ["USER", "RECEPTION", "ADMIN"]
+            items:
+              - { label: "My Documents",     icon: "i-lucide-files",            route: "/my-documents", badge: "async:unacknowledged_count" }
+              - { label: "Submit Outgoing",  icon: "i-lucide-file-up",          route: "/outgoing/new" }
+              - { label: "Search",           icon: "i-lucide-search",           route: "/search" }
+          - group: "Administration"
+            required_permission: "admin.access"
+            roles: ["ADMIN"]
+            items:
+              - { label: "Users",            icon: "i-lucide-users",            route: "/admin/users" }
+              - { label: "Document Types",   icon: "i-lucide-tag",              route: "/admin/document-types" }
+              - { label: "Routing Rules",    icon: "i-lucide-git-merge",        route: "/admin/routing-rules" }
+              - { label: "Escalation",       icon: "i-lucide-bell-ring",        route: "/admin/escalation" }
+              - { label: "Audit Log",        icon: "i-lucide-shield",           route: "/admin/audit-log" }
+              - { label: "Reports",          icon: "i-lucide-bar-chart-2",      route: "/admin/reports" }
+              - { label: "Settings",         icon: "i-lucide-settings",         route: "/admin/settings" }
+              - { label: "Branding",         icon: "i-lucide-palette",          route: "/admin/branding" }
+
+      topbar:
+        component: "WorkspaceNavbar"
+        file: "~/components/layout/WorkspaceNavbar.vue"
+        sticky: true
+        height: "h-14"
+        root_class: "bg-white border-b border-slate-200"
+        props:
+          show_sidebar_toggle: true       # hamburger on mobile/tablet
+          show_breadcrumb: true           # desktop only
+          show_global_search: true
+          show_notification_bell: true    # opens NotificationDrawer
+          profile_dropdown:
+            show_role_badge: true
+            show_department: true
+            actions:
+              - { label: "Profile",         icon: "i-lucide-user",       route: "/settings/profile" }
+              - { label: "Sign Out",        icon: "i-lucide-log-out",    route: "/auth/logout", variant: "ghost", color: "error" }
+
+      notification_drawer:
+        component: "NotificationDrawer"
+        file: "~/components/layout/NotificationDrawer.vue"
+        nuxt_ui_base: "USlideover"
+        side: "right"
+        width: "max-w-sm"
+        props:
+          show_mark_all_read: true
+          group_by: "document"
+          empty_state: { icon: "i-lucide-bell-off", label: "No new notifications" }
+
+      main_content:
+        wrapper_class: "flex-1 flex flex-col min-w-0 overflow-hidden"
+        scroll_container_class: "flex-1 overflow-y-auto focus:outline-none"
+        inner_padding: "p-4 sm:p-6"
+
+    bottom_nav:
+      responsive: "mobile + tablet only (< 1024px)"
+      component: "WorkspaceBottomNav"
+      max_items: 4
+      items:
+        - { label: "Dashboard", icon: "i-lucide-layout-dashboard", route: "/dashboard",      roles: ["RECEPTION","ADMIN"] }
+        - { label: "Inbound",   icon: "i-lucide-inbox",            route: "/dispatch/inbound", roles: ["RECEPTION","ADMIN"] }
+        - { label: "My Docs",   icon: "i-lucide-files",            route: "/my-documents",   roles: ["USER","RECEPTION","ADMIN"] }
+        - { label: "Search",    icon: "i-lucide-search",           route: "/search",         roles: ["USER","RECEPTION","ADMIN"] }
+
+  # =========================================================================
+  # 3. DOCUMENT EXAMINER LAYOUT — Split-panel PDF + noting view (future)
+  # =========================================================================
+  document_examiner:
+    id: "layout_document_examiner"
+    file: "~/layouts/document-examiner.vue"
+    middleware:
+      - "auth-required"
+      - "verify-file-access-token"
+    note: "Reserved for future split-screen PDF + Green Noting Canvas implementation (Pillar 2 phase)."
+
+page_registry:
+  # Defines which layout each route uses and the page's purpose
+  - route: "/auth/login"
+    layout: "auth"
+    roles: ["*"]
+    us: ["US-01"]
+  - route: "/dashboard"
+    layout: "workspace"
+    roles: ["RECEPTION", "ADMIN"]
+    us: ["US-10"]
+  - route: "/dispatch/inbound"
+    layout: "workspace"
+    roles: ["RECEPTION", "ADMIN"]
+    us: ["US-10"]
+  - route: "/dispatch/inbound/new"
+    layout: "workspace"
+    roles: ["RECEPTION", "ADMIN"]
+    us: ["US-03", "US-04"]
+  - route: "/dispatch/outbound"
+    layout: "workspace"
+    roles: ["RECEPTION", "ADMIN"]
+    us: ["US-09"]
+  - route: "/documents/[id]"
+    layout: "workspace"
+    roles: ["*"]
+    us: ["US-07", "US-08", "US-14"]
+  - route: "/my-documents"
+    layout: "workspace"
+    roles: ["USER", "RECEPTION", "ADMIN"]
+    us: ["US-08", "US-11", "US-13"]
+  - route: "/outgoing/new"
+    layout: "workspace"
+    roles: ["USER", "RECEPTION", "ADMIN"]
+    us: ["US-09"]
+  - route: "/search"
+    layout: "workspace"
+    roles: ["*"]
+    us: ["US-13"]
+  - route: "/admin/users"
+    layout: "workspace"
+    roles: ["ADMIN"]
+    us: ["US-15"]
+  - route: "/admin/document-types"
+    layout: "workspace"
+    roles: ["ADMIN"]
+    us: ["US-16"]
+  - route: "/admin/routing-rules"
+    layout: "workspace"
+    roles: ["ADMIN"]
+    us: ["US-05", "US-06"]
+  - route: "/admin/escalation"
+    layout: "workspace"
+    roles: ["ADMIN"]
+    us: ["US-12"]
+  - route: "/admin/audit-log"
+    layout: "workspace"
+    roles: ["ADMIN"]
+    us: ["US-17"]
+  - route: "/admin/reports"
+    layout: "workspace"
+    roles: ["ADMIN"]
+    us: ["US-18"]
+  - route: "/admin/settings"
+    layout: "workspace"
+    roles: ["ADMIN"]
+    us: ["US-19"]
+  - route: "/admin/branding"
+    layout: "workspace"
+    roles: ["ADMIN"]
+    us: ["US-20"]
