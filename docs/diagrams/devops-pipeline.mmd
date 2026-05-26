@@ -1,0 +1,154 @@
+---
+title: Aethel Workspace — DevOps Pipeline & Infrastructure
+---
+flowchart LR
+    %% ─────────────────────────────────────────────────────────────
+    %% Developer workflow
+    %% ─────────────────────────────────────────────────────────────
+    DEV([Developer\nworkstation])
+
+    subgraph LOCAL["Local Development"]
+        MAKE[make dev\nmake test]
+        COMPOSE[Docker Compose\npostgres + backend + frontend]
+        MAKE --> COMPOSE
+    end
+
+    DEV --> LOCAL
+    DEV -->|git push / PR| GH
+
+    %% ─────────────────────────────────────────────────────────────
+    %% GitHub
+    %% ─────────────────────────────────────────────────────────────
+    subgraph GH["GitHub"]
+        PR[Pull Request]
+        MAIN[main branch]
+        PR -->|merge| MAIN
+    end
+
+    %% ─────────────────────────────────────────────────────────────
+    %% CI — runs in parallel on PR and push to main
+    %% ─────────────────────────────────────────────────────────────
+    subgraph CI["CI  (.github/workflows/ci.yml)"]
+        direction TB
+        CI_BE[test-backend\ngo vet · go test · golangci-lint]
+        CI_FE[test-frontend\npnpm install · build · vitest]
+        CI_YAML[lint-yaml\nyamllint blueprints/]
+    end
+
+    MAIN --> CI
+
+    %% ─────────────────────────────────────────────────────────────
+    %% Security scanning — weekly + on push
+    %% ─────────────────────────────────────────────────────────────
+    subgraph SEC["Security  (.github/workflows/security.yml)"]
+        direction TB
+        TRIVY[Trivy\nimage + filesystem scan]
+        GOVULN[govulncheck\nGo dependency audit]
+        GOSEC[gosec\nGo SAST]
+        SARIF[GitHub Security tab\nSARIF upload]
+        TRIVY --> SARIF
+        GOVULN --> SARIF
+        GOSEC --> SARIF
+    end
+
+    MAIN --> SEC
+
+    %% ─────────────────────────────────────────────────────────────
+    %% CD — runs after CI passes
+    %% ─────────────────────────────────────────────────────────────
+    subgraph CD["CD  (.github/workflows/cd.yml)"]
+        direction TB
+        BUILD[build-and-push\nDocker buildx\nmulti-arch linux/amd64 · arm64]
+        GHCR[(GitHub Container\nRegistry  ghcr.io\naethel-core:SHA\naethel-view:SHA)]
+        DEPLOY_STG[deploy-staging\nkubectl set image\nkubectl rollout status]
+
+        BUILD --> GHCR
+        GHCR --> DEPLOY_STG
+    end
+
+    CI --> CD
+
+    %% ─────────────────────────────────────────────────────────────
+    %% Manual gate to production
+    %% ─────────────────────────────────────────────────────────────
+    GATE{Manual\napproval gate}
+    DEPLOY_STG --> GATE
+
+    %% ─────────────────────────────────────────────────────────────
+    %% Production Kubernetes cluster
+    %% ─────────────────────────────────────────────────────────────
+    subgraph K8S_PROD["Kubernetes — namespace: aethel-workspace"]
+        direction TB
+
+        subgraph INGRESS_GRP["Ingress (nginx)"]
+            ING[Ingress\n/ → frontend\n/api → backend]
+        end
+
+        subgraph FE_GRP["Frontend  (HPA min2–max10)"]
+            FE_D[Deployment\naethel-view\n2 replicas]
+            FE_S[Service ClusterIP\n:3000]
+            FE_D --- FE_S
+        end
+
+        subgraph BE_GRP["Backend  (HPA min2–max10)"]
+            BE_D[Deployment\naethel-core\n2 replicas]
+            BE_S[Service ClusterIP\n:8080]
+            BE_D --- BE_S
+        end
+
+        subgraph DB_GRP["Database"]
+            PG[StatefulSet\npostgres:16-alpine\n1 replica + PVC 20Gi]
+            PG_S[Service ClusterIP\n:5432]
+            PG --- PG_S
+        end
+
+        subgraph SECRETS["Secrets & Config"]
+            SEC_K8S[K8s Secrets\nDB password · JWT · SMTP]
+            CM[ConfigMap\nAETHEL_ENV · ports]
+        end
+
+        ING --> FE_S
+        ING --> BE_S
+        BE_S --> PG_S
+        BE_D -.->|mounts| SEC_K8S
+        BE_D -.->|mounts| CM
+    end
+
+    GATE -->|k8s-rollout.sh\nmigrate Job → rollout restart| K8S_PROD
+    GHCR -->|pull image| FE_D
+    GHCR -->|pull image| BE_D
+
+    %% ─────────────────────────────────────────────────────────────
+    %% Observability stack (optional self-hosted)
+    %% ─────────────────────────────────────────────────────────────
+    subgraph OBS["Observability (recommended)"]
+        PROM[Prometheus\nmetrics scrape]
+        GRAF[Grafana\ndashboards]
+        LOKI[Loki + Promtail\nstructured logs]
+        TEMPO[OpenTelemetry\n+ Tempo traces]
+        PROM --> GRAF
+        LOKI --> GRAF
+    end
+
+    K8S_PROD -.->|metrics| PROM
+    K8S_PROD -.->|logs| LOKI
+    K8S_PROD -.->|traces| TEMPO
+
+    %% ─────────────────────────────────────────────────────────────
+    %% Styles
+    %% ─────────────────────────────────────────────────────────────
+    classDef github    fill:#24292e,color:#fff,stroke:#444
+    classDef ci        fill:#0366d6,color:#fff,stroke:#0256b9
+    classDef cd        fill:#28a745,color:#fff,stroke:#1e7e34
+    classDef k8s       fill:#326ce5,color:#fff,stroke:#1a56c4
+    classDef security  fill:#e36209,color:#fff,stroke:#b74a07
+    classDef obs       fill:#6f42c1,color:#fff,stroke:#5a32a3
+    classDef local     fill:#f1f8ff,color:#24292e,stroke:#c8e1ff
+
+    class GH,PR,MAIN github
+    class CI,CI_BE,CI_FE,CI_YAML ci
+    class CD,BUILD,GHCR,DEPLOY_STG cd
+    class K8S_PROD,ING,FE_D,FE_S,BE_D,BE_S,PG,PG_S,SEC_K8S,CM k8s
+    class SEC,TRIVY,GOVULN,GOSEC,SARIF security
+    class OBS,PROM,GRAF,LOKI,TEMPO obs
+    class LOCAL,MAKE,COMPOSE local

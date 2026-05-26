@@ -1,0 +1,21 @@
+flowchart TD
+    A["Startup: main.go begins"] --> B["Load server-routes.yaml\nblueprint.LoadRoutesConfig()"]
+    B --> C{"YAML valid?\nall required fields present?"}
+    C -- No --> FAIL1["Fatal: process exits\nnon-zero status"]
+    C -- Yes --> D["Load hardcoded default routes\nfrom Go source slice"]
+    D --> E["Merge: for each default route\ncheck overrides section"]
+    E --> F{"Override entry\nexists for this pattern?"}
+    F -- Yes --> G["Replace default pattern\nwith custom pattern"]
+    F -- No --> H["Keep default pattern"]
+    G --> I["Apply group-level and\nroute-level timeout_ms\nand rate_limit_rpm overrides"]
+    H --> I
+    I --> J["Validate every route:\npermission field non-empty\npattern syntax valid\nhandler reference resolves"]
+    J --> K{"Validation\npassed?"}
+    K -- No --> FAIL2["Fatal: log failing route\nprocess exits non-zero"]
+    K -- Yes --> L["Register routes with chi router:\ngroups become sub-routers\nscoped RBAC middleware applied"]
+    L --> M["Wire RBAC middleware per route\nat startup (not at request time)"]
+    M --> N["Startup complete:\nHTTP server begins accepting connections"]
+
+    style FAIL1 fill:#ffcdd2,stroke:#f44336
+    style FAIL2 fill:#ffcdd2,stroke:#f44336
+    style N fill:#c8e6c9,stroke:#4caf50

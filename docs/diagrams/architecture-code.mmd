@@ -1,0 +1,57 @@
+flowchart TD
+    subgraph entry["Entry Point"]
+        CMD["cmd/aethel/main.go\nCLI wiring, startup sequence"]
+    end
+
+    subgraph config["Configuration (no internal deps)"]
+        BP["internal/blueprint/\nloader.go\ndatabase_config.go\nqueries_config.go\nroutes_config.go"]
+    end
+
+    subgraph core["Domain Core (no infrastructure deps)"]
+        DOM["internal/domain/\nentity types\nrepository interfaces\nsentinel errors"]
+    end
+
+    subgraph infra["Infrastructure"]
+        DB["internal/database/\nconnect.go\nmigrator.go\nquery_registry.go\nrepository implementations"]
+    end
+
+    subgraph applogic["Application Logic"]
+        SVC["internal/service/\ndispatch_service.go\nworkflow_service.go\nauth_service.go\nescalation_service.go"]
+    end
+
+    subgraph crosscut["Cross-Cutting"]
+        RBAC["internal/rbac/\nmiddleware.go\npermission enforcement"]
+        WORKER["internal/worker/\nescalation_worker.go"]
+        TRANSPORT["internal/transport/\nsse.go - SSE broker"]
+    end
+
+    subgraph delivery["HTTP Delivery (imports everything, never imported)"]
+        API["internal/api/\nserver.go\nhandlers/auth.go\nhandlers/dispatch.go\nhandlers/workflow.go\nhandlers/governance.go\nhandlers/admin.go"]
+    end
+
+    CMD --> BP
+    CMD --> DB
+    CMD --> SVC
+    CMD --> API
+    CMD --> WORKER
+
+    BP --> DB
+    BP --> API
+
+    DOM --> DB
+    DOM --> SVC
+    DOM --> RBAC
+    DOM --> TRANSPORT
+
+    DB --> SVC
+
+    SVC --> API
+    SVC --> WORKER
+
+    RBAC --> API
+    TRANSPORT --> API
+
+    style DOM fill:#e8f4f8,stroke:#2196F3
+    style BP fill:#fff3e0,stroke:#FF9800
+    style API fill:#fce4ec,stroke:#E91E63
+    style CMD fill:#f3e5f5,stroke:#9C27B0

@@ -1,0 +1,41 @@
+sequenceDiagram
+    participant C as Client
+    participant RCV as Recovery MW
+    participant RID as RequestID MW
+    participant LOG as Logger MW
+    participant RL as RateLimit MW
+    participant CORS as CORS MW
+    participant AUTH as Auth MW
+    participant TR as TenantResolver MW
+    participant RBAC as RBAC MW
+    participant H as Handler
+    participant SVC as Service
+    participant QR as QueryRegistry
+    participant PG as PostgreSQL
+
+    C->>RCV: HTTP request
+    RCV->>RID: (panic guard active)
+    RID->>LOG: set X-Request-ID on context
+    LOG->>RL: record start time
+    RL->>CORS: check per-IP token bucket
+    alt rate limit exceeded
+        CORS-->>C: 429 Too Many Requests
+    end
+    CORS->>AUTH: handle OPTIONS or append CORS headers
+    AUTH->>TR: parse + validate JWT
+    alt invalid or missing JWT
+        TR-->>C: 401 Unauthorized
+    end
+    TR->>RBAC: set orgID on context
+    RBAC->>H: check role vs required permission
+    alt permission denied
+        H-->>C: 403 Forbidden + audit event written
+    end
+    H->>SVC: call service function
+    SVC->>QR: QueryRegistry.Get("group.name")
+    QR->>PG: execute prepared statement (org-scoped)
+    PG-->>QR: result rows
+    QR-->>SVC: rows
+    SVC-->>H: domain types
+    H-->>LOG: encode JSON response
+    LOG-->>C: HTTP response + log latency

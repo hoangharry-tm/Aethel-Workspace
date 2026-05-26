@@ -1,0 +1,49 @@
+flowchart LR
+    subgraph client["Client Layer"]
+        Browser["Browser\n(Nuxt 4 SPA)"]
+        Mobile["Mobile\n(future)"]
+    end
+
+    subgraph frontend["aethel-view (Nuxt 4)"]
+        NuxtApp["Nuxt 4 Frontend\nVue 3 + Pinia\nNuxt UI v4"]
+    end
+
+    subgraph backend["aethel-core (Go)"]
+        GoAPI["Go HTTP API\nchi router\nJWT auth + RBAC"]
+        GoWorker["Escalation Worker\nBackground goroutine"]
+        SSEBroker["SSE Broker\nReal-time notifications"]
+    end
+
+    subgraph data["Data Layer"]
+        PG["PostgreSQL 16\n20 tables\n3 domain pillars"]
+    end
+
+    subgraph config["blueprints/"]
+        BP["YAML Blueprints\nbaked in at compile time"]
+        BPTheme["ui-theme.yaml"]
+        BPRoutes["server-routes.yaml"]
+        BPDB["server-database.yaml"]
+        BPQueries["server-queries.yaml"]
+    end
+
+    subgraph optional["Optional Integrations"]
+        SMTP["SMTP\n(email notifications)"]
+        S3["S3-compatible\n(file attachments)"]
+    end
+
+    Browser --> NuxtApp
+    Mobile --> GoAPI
+    NuxtApp --> GoAPI
+    GoAPI --> PG
+    GoWorker --> PG
+    GoWorker --> SSEBroker
+    SSEBroker --> NuxtApp
+    GoAPI --> SMTP
+    GoAPI --> S3
+
+    BP --> GoAPI
+    BP --> NuxtApp
+    BPTheme -.-> BP
+    BPRoutes -.-> BP
+    BPDB -.-> BP
+    BPQueries -.-> BP
