@@ -1,7 +1,7 @@
 # Aethel Workspace — UI Components Blueprint
 # Maps logical application widgets to their visual params, state schemas, and composition rules.
 # Engine: Nuxt UI v4 + Vue 3
-
+---
 metadata:
   version: "1.0.0"
   engine_target: "nuxt-ui-4.x"

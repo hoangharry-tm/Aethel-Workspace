@@ -1,7 +1,7 @@
 # Aethel Workspace — UI Layouts Blueprint
 # Defines page shells, responsive breakpoints, navigation trees, and slot definitions.
 # Engine: Nuxt 4 layouts system
-
+---
 metadata:
   version: "1.0.0"
   engine_target: "nuxt-4.x"
@@ -9,8 +9,8 @@ metadata:
 
 global_defaults:
   breakpoints:
-    mobile:  "< 640px"
-    tablet:  "640px – 1023px"
+    mobile: "< 640px"
+    tablet: "640px – 1023px"
     desktop: "≥ 1024px"
   transitions:
     layout_change: "fade, 200ms ease-in-out"
@@ -18,7 +18,6 @@ global_defaults:
     fallback_component: "GlobalErrorFallback"
 
 layouts:
-
   # =========================================================================
   # 1. AUTH LAYOUT — Login / password reset
   # =========================================================================
@@ -53,7 +52,6 @@ layouts:
       - { name: "default", required: true }
 
     regions:
-
       sidebar:
         component: "WorkspaceSidebar"
         file: "~/components/layout/WorkspaceSidebar.vue"
@@ -61,8 +59,8 @@ layouts:
         default_state: "expanded"
         responsive:
           desktop: "fixed left sidebar, collapsible to icon-only (w-64 → w-16)"
-          tablet:  "hidden by default, slide-out drawer on hamburger tap"
-          mobile:  "slide-out drawer + bottom navigation bar for top-level routes"
+          tablet: "hidden by default, slide-out drawer on hamburger tap"
+          mobile: "slide-out drawer + bottom navigation bar for top-level routes"
         width:
           expanded: "w-64"
           collapsed: "w-16"
@@ -75,28 +73,82 @@ layouts:
             required_permission: "dispatch.view"
             roles: ["RECEPTION", "ADMIN"]
             items:
-              - { label: "Dashboard",        icon: "i-lucide-layout-dashboard", route: "/dashboard" }
-              - { label: "Inbound",          icon: "i-lucide-inbox",            route: "/dispatch/inbound",  badge: "async:inbound_pending_count" }
-              - { label: "Outbound",         icon: "i-lucide-send",             route: "/dispatch/outbound" }
+              - {
+                  label: "Dashboard",
+                  icon: "i-lucide-layout-dashboard",
+                  route: "/dashboard",
+                }
+              - {
+                  label: "Inbound",
+                  icon: "i-lucide-inbox",
+                  route: "/dispatch/inbound",
+                  badge: "async:inbound_pending_count",
+                }
+              - {
+                  label: "Outbound",
+                  icon: "i-lucide-send",
+                  route: "/dispatch/outbound",
+                }
           - group: "My Work"
             required_permission: null
             roles: ["USER", "RECEPTION", "ADMIN"]
             items:
-              - { label: "My Documents",     icon: "i-lucide-files",            route: "/my-documents", badge: "async:unacknowledged_count" }
-              - { label: "Submit Outgoing",  icon: "i-lucide-file-up",          route: "/outgoing/new" }
-              - { label: "Search",           icon: "i-lucide-search",           route: "/search" }
+              - {
+                  label: "My Documents",
+                  icon: "i-lucide-files",
+                  route: "/my-documents",
+                  badge: "async:unacknowledged_count",
+                }
+              - {
+                  label: "Submit Outgoing",
+                  icon: "i-lucide-file-up",
+                  route: "/outgoing/new",
+                }
+              - { label: "Search", icon: "i-lucide-search", route: "/search" }
           - group: "Administration"
             required_permission: "admin.access"
             roles: ["ADMIN"]
             items:
-              - { label: "Users",            icon: "i-lucide-users",            route: "/admin/users" }
-              - { label: "Document Types",   icon: "i-lucide-tag",              route: "/admin/document-types" }
-              - { label: "Routing Rules",    icon: "i-lucide-git-merge",        route: "/admin/routing-rules" }
-              - { label: "Escalation",       icon: "i-lucide-bell-ring",        route: "/admin/escalation" }
-              - { label: "Audit Log",        icon: "i-lucide-shield",           route: "/admin/audit-log" }
-              - { label: "Reports",          icon: "i-lucide-bar-chart-2",      route: "/admin/reports" }
-              - { label: "Settings",         icon: "i-lucide-settings",         route: "/admin/settings" }
-              - { label: "Branding",         icon: "i-lucide-palette",          route: "/admin/branding" }
+              - {
+                  label: "Users",
+                  icon: "i-lucide-users",
+                  route: "/admin/users",
+                }
+              - {
+                  label: "Document Types",
+                  icon: "i-lucide-tag",
+                  route: "/admin/document-types",
+                }
+              - {
+                  label: "Routing Rules",
+                  icon: "i-lucide-git-merge",
+                  route: "/admin/routing-rules",
+                }
+              - {
+                  label: "Escalation",
+                  icon: "i-lucide-bell-ring",
+                  route: "/admin/escalation",
+                }
+              - {
+                  label: "Audit Log",
+                  icon: "i-lucide-shield",
+                  route: "/admin/audit-log",
+                }
+              - {
+                  label: "Reports",
+                  icon: "i-lucide-bar-chart-2",
+                  route: "/admin/reports",
+                }
+              - {
+                  label: "Settings",
+                  icon: "i-lucide-settings",
+                  route: "/admin/settings",
+                }
+              - {
+                  label: "Branding",
+                  icon: "i-lucide-palette",
+                  route: "/admin/branding",
+                }
 
       topbar:
         component: "WorkspaceNavbar"
@@ -105,16 +157,26 @@ layouts:
         height: "h-14"
         root_class: "bg-white border-b border-slate-200"
         props:
-          show_sidebar_toggle: true       # hamburger on mobile/tablet
-          show_breadcrumb: true           # desktop only
+          show_sidebar_toggle: true # hamburger on mobile/tablet
+          show_breadcrumb: true # desktop only
           show_global_search: true
-          show_notification_bell: true    # opens NotificationDrawer
+          show_notification_bell: true # opens NotificationDrawer
           profile_dropdown:
             show_role_badge: true
             show_department: true
             actions:
-              - { label: "Profile",         icon: "i-lucide-user",       route: "/settings/profile" }
-              - { label: "Sign Out",        icon: "i-lucide-log-out",    route: "/auth/logout", variant: "ghost", color: "error" }
+              - {
+                  label: "Profile",
+                  icon: "i-lucide-user",
+                  route: "/settings/profile",
+                }
+              - {
+                  label: "Sign Out",
+                  icon: "i-lucide-log-out",
+                  route: "/auth/logout",
+                  variant: "ghost",
+                  color: "error",
+                }
 
       notification_drawer:
         component: "NotificationDrawer"
@@ -125,7 +187,8 @@ layouts:
         props:
           show_mark_all_read: true
           group_by: "document"
-          empty_state: { icon: "i-lucide-bell-off", label: "No new notifications" }
+          empty_state:
+            { icon: "i-lucide-bell-off", label: "No new notifications" }
 
       main_content:
         wrapper_class: "flex-1 flex flex-col min-w-0 overflow-hidden"
@@ -137,10 +200,30 @@ layouts:
       component: "WorkspaceBottomNav"
       max_items: 4
       items:
-        - { label: "Dashboard", icon: "i-lucide-layout-dashboard", route: "/dashboard",      roles: ["RECEPTION","ADMIN"] }
-        - { label: "Inbound",   icon: "i-lucide-inbox",            route: "/dispatch/inbound", roles: ["RECEPTION","ADMIN"] }
-        - { label: "My Docs",   icon: "i-lucide-files",            route: "/my-documents",   roles: ["USER","RECEPTION","ADMIN"] }
-        - { label: "Search",    icon: "i-lucide-search",           route: "/search",         roles: ["USER","RECEPTION","ADMIN"] }
+        - {
+            label: "Dashboard",
+            icon: "i-lucide-layout-dashboard",
+            route: "/dashboard",
+            roles: ["RECEPTION", "ADMIN"],
+          }
+        - {
+            label: "Inbound",
+            icon: "i-lucide-inbox",
+            route: "/dispatch/inbound",
+            roles: ["RECEPTION", "ADMIN"],
+          }
+        - {
+            label: "My Docs",
+            icon: "i-lucide-files",
+            route: "/my-documents",
+            roles: ["USER", "RECEPTION", "ADMIN"],
+          }
+        - {
+            label: "Search",
+            icon: "i-lucide-search",
+            route: "/search",
+            roles: ["USER", "RECEPTION", "ADMIN"],
+          }
 
   # =========================================================================
   # 3. DOCUMENT EXAMINER LAYOUT — Split-panel PDF + noting view (future)

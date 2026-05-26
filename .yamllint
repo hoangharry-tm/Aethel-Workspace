@@ -1,0 +1,31 @@
+---
+# yamllint configuration for Aethel Workspace blueprint files.
+# Blueprint YAML files use alignment-padded maps and flow-style inline
+# records for readability; the default 80-char / strict-spacing rules
+# don't suit that style.
+extends: default
+
+rules:
+  # Allow alignment padding: "primary:  indigo" or color scale "50":  "#..."
+  colons:
+    max-spaces-before: 0
+    max-spaces-after: -1   # -1 = unlimited (alignment padding is intentional)
+
+  # Allow alignment padding in flow-style comma lists
+  commas:
+    max-spaces-before: 0
+    min-spaces-after: 0    # ["RECEPTION","ADMIN"] is allowed
+    max-spaces-after: -1   # alignment padding after comma is intentional
+
+  # Allow { key: val } style (1 space inside braces)
+  braces:
+    min-spaces-inside: 0
+    max-spaces-inside: 1
+
+  # Navigation tree items and typography size tuples can exceed 80 chars
+  line-length:
+    max: 140
+    level: warning
+
+  # All blueprint files must open with ---
+  document-start: enable
