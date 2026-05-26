@@ -1,0 +1,11 @@
+.git
+.gitignore
+*.md
+*_test.go
+internal/database/migrations
+# Migrations are embedded at build time via go:embed in the migrator;
+# if you prefer runtime loading, remove this line.
+testdata
+coverage.out
+.env
+.env.*

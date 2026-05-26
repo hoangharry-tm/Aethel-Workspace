@@ -1,0 +1,123 @@
+---
+# =============================================================================
+# CI — Runs on every PR and push to main
+# Jobs: test-backend, test-frontend, lint-yaml (all parallel)
+# =============================================================================
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Go backend: vet, test, lint
+  # ---------------------------------------------------------------------------
+  test-backend:
+    name: Test Backend (Go)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: aethel-core
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache-dependency-path: aethel-core/go.sum
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test -race -coverprofile=coverage.out ./...
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-coverage
+          path: aethel-core/coverage.out
+          retention-days: 7
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: aethel-core
+          args: --timeout 5m
+
+  # ---------------------------------------------------------------------------
+  # Nuxt frontend: install, type-check (build), unit tests
+  # ---------------------------------------------------------------------------
+  test-frontend:
+    name: Test Frontend (Nuxt)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: aethel-view
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('aethel-view/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check (nuxt build)
+        run: pnpm build
+        env:
+          NUXT_PUBLIC_API_BASE_URL: http://localhost:8080
+
+      - name: Run unit + component tests
+        run: pnpm test --run
+
+  # ---------------------------------------------------------------------------
+  # Blueprint YAML linting
+  # ---------------------------------------------------------------------------
+  lint-yaml:
+    name: Lint YAML Blueprints
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Lint blueprints
+        run: yamllint -c .yamllint blueprints/

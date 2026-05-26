@@ -1,0 +1,146 @@
+---
+# =============================================================================
+# CD — Runs on push to main (after CI) and on manual trigger
+# Jobs: build-and-push → deploy-staging
+# =============================================================================
+name: CD
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - production
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  # TODO: Replace YOUR_ORG with your GitHub organisation or username
+  IMAGE_BACKEND: ghcr.io/${{ github.repository_owner }}/aethel-core
+  IMAGE_FRONTEND: ghcr.io/${{ github.repository_owner }}/aethel-view
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Build and push Docker images to GHCR
+  # ---------------------------------------------------------------------------
+  build-and-push:
+    name: Build & Push Docker Images
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      sha-tag: ${{ steps.meta.outputs.sha-tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive image tags
+        id: meta
+        run: |
+          SHA="${{ github.sha }}"
+          SHORT_SHA="${SHA:0:7}"
+          echo "sha-tag=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "Backend image: ${{ env.IMAGE_BACKEND }}:${SHORT_SHA}"
+          echo "Frontend image: ${{ env.IMAGE_FRONTEND }}:${SHORT_SHA}"
+
+      - name: Build & push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./aethel-core
+          file: ./aethel-core/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_BACKEND }}:${{ steps.meta.outputs.sha-tag }}
+            ${{ env.IMAGE_BACKEND }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+      - name: Build & push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./aethel-view
+          file: ./aethel-view/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_FRONTEND }}:${{ steps.meta.outputs.sha-tag }}
+            ${{ env.IMAGE_FRONTEND }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            NUXT_PUBLIC_API_BASE_URL=https://api.aethel.example.com
+
+  # ---------------------------------------------------------------------------
+  # Deploy to staging
+  # ---------------------------------------------------------------------------
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-24.04
+    needs: build-and-push
+    environment: staging
+    env:
+      STAGING_NAMESPACE: aethel-workspace-staging
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: latest
+
+      - name: Configure kubeconfig
+        # TODO: Add KUBECONFIG_STAGING secret in GitHub repo settings:
+        #       Settings → Secrets and variables → Actions → New repository secret
+        #       Name: KUBECONFIG_STAGING  Value: base64-encoded kubeconfig file
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG_STAGING }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Roll out backend
+        run: |
+          kubectl set image deployment/aethel-core \
+            aethel-core=${{ env.IMAGE_BACKEND }}:${{ needs.build-and-push.outputs.sha-tag }} \
+            --namespace=${{ env.STAGING_NAMESPACE }}
+          kubectl rollout status deployment/aethel-core \
+            --namespace=${{ env.STAGING_NAMESPACE }} \
+            --timeout=5m
+
+      - name: Roll out frontend
+        run: |
+          kubectl set image deployment/aethel-view \
+            aethel-view=${{ env.IMAGE_FRONTEND }}:${{ needs.build-and-push.outputs.sha-tag }} \
+            --namespace=${{ env.STAGING_NAMESPACE }}
+          kubectl rollout status deployment/aethel-view \
+            --namespace=${{ env.STAGING_NAMESPACE }} \
+            --timeout=5m
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods --namespace=${{ env.STAGING_NAMESPACE }}

@@ -1,0 +1,49 @@
+---
+# =============================================================================
+# Ingress — nginx ingress controller required.
+# Install: https://kubernetes.github.io/ingress-nginx/deploy/
+# TLS: configure cert-manager (https://cert-manager.io) for automatic HTTPS.
+# =============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aethel-workspace
+  namespace: aethel-workspace
+  labels:
+    app.kubernetes.io/name: aethel-workspace
+    app.kubernetes.io/part-of: aethel-workspace
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    # Uncomment to enable TLS via cert-manager:
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  # TODO: Replace aethel.example.com with your actual domain
+  # tls:
+  #   - hosts:
+  #       - aethel.example.com
+  #     secretName: aethel-tls
+  rules:
+    # TODO: Replace aethel.example.com with your actual domain
+    - host: aethel.example.com
+      http:
+        paths:
+          # API traffic — route /api/* to backend (strip /api prefix)
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: aethel-core
+                port:
+                  number: 8080
+          # Everything else — route to frontend
+          - path: /()(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: aethel-view
+                port:
+                  number: 3000

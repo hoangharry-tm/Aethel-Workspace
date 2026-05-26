@@ -1,0 +1,13 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aethel-core-config
+  namespace: aethel-workspace
+  labels:
+    app.kubernetes.io/name: aethel-core
+    app.kubernetes.io/part-of: aethel-workspace
+data:
+  AETHEL_ENV: production
+  AETHEL_PORT: "8080"
+  AETHEL_BLUEPRINTS_PATH: /app/blueprints

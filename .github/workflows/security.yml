@@ -1,0 +1,197 @@
+---
+# =============================================================================
+# Security — Vulnerability scanning on push to main and weekly schedule
+# Tools: Trivy (images + filesystem), govulncheck (Go deps)
+# Results uploaded to GitHub Security tab as SARIF
+# =============================================================================
+name: Security Scan
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    # Every Monday at 08:00 UTC
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Trivy: scan both Docker images
+  # ---------------------------------------------------------------------------
+  trivy-backend:
+    name: Trivy — Backend Image
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build backend image (for scanning)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./aethel-core
+          file: ./aethel-core/Dockerfile
+          push: false
+          tags: aethel-core:scan
+          load: true
+
+      - name: Trivy scan — backend image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: aethel-core:scan
+          format: sarif
+          output: trivy-backend.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: Upload SARIF — backend
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-backend.sarif
+          category: trivy-backend
+
+  trivy-frontend:
+    name: Trivy — Frontend Image
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node + pnpm (needed for build)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+          run_install: false
+
+      - name: Build frontend image (for scanning)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./aethel-view
+          file: ./aethel-view/Dockerfile
+          push: false
+          tags: aethel-view:scan
+          load: true
+
+      - name: Trivy scan — frontend image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: aethel-view:scan
+          format: sarif
+          output: trivy-frontend.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: Upload SARIF — frontend
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-frontend.sarif
+          category: trivy-frontend
+
+  # ---------------------------------------------------------------------------
+  # Trivy: filesystem scan (Dockerfiles, IaC, secrets)
+  # ---------------------------------------------------------------------------
+  trivy-filesystem:
+    name: Trivy — Filesystem
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Trivy scan — filesystem
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-fs.sarif
+          severity: CRITICAL,HIGH,MEDIUM
+          exit-code: "0"  # Don't fail on FS scan; upload results for review
+
+      - name: Upload SARIF — filesystem
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-filesystem
+
+  # ---------------------------------------------------------------------------
+  # govulncheck: Go dependency vulnerability check
+  # ---------------------------------------------------------------------------
+  govulncheck:
+    name: govulncheck — Go Dependencies
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: aethel-core
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache-dependency-path: aethel-core/go.sum
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Run govulncheck
+        run: govulncheck ./...
+
+  # ---------------------------------------------------------------------------
+  # gosec: Go SAST (static application security testing)
+  # ---------------------------------------------------------------------------
+  gosec:
+    name: gosec — Go SAST
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+    defaults:
+      run:
+        working-directory: aethel-core
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache-dependency-path: aethel-core/go.sum
+
+      - name: Run gosec
+        uses: securego/gosec@v2.21.4
+        with:
+          args: "-fmt sarif -out gosec.sarif ./..."
+          working_directory: aethel-core
+
+      - name: Upload SARIF — gosec
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: aethel-core/gosec.sarif
+          category: gosec

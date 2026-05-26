@@ -1,0 +1,85 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aethel-view
+  namespace: aethel-workspace
+  labels:
+    app.kubernetes.io/name: aethel-view
+    app.kubernetes.io/part-of: aethel-workspace
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aethel-view
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: aethel-view
+        app.kubernetes.io/part-of: aethel-workspace
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: aethel-view
+          # TODO: Replace with your GHCR image — e.g. ghcr.io/your-org/aethel-view:latest
+          image: ghcr.io/YOUR_ORG/aethel-view:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: NUXT_PUBLIC_API_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: aethel-view-config
+                  key: NUXT_PUBLIC_API_BASE_URL
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+              cpu: 500m
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop:
+                - ALL
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aethel-view-config
+  namespace: aethel-workspace
+  labels:
+    app.kubernetes.io/name: aethel-view
+    app.kubernetes.io/part-of: aethel-workspace
+data:
+  # TODO: Replace with real backend URL (e.g. https://api.aethel.example.com)
+  NUXT_PUBLIC_API_BASE_URL: https://api.aethel.example.com

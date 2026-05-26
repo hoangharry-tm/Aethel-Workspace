@@ -1,0 +1,76 @@
+---
+# =============================================================================
+# Aethel Workspace — Production Docker Compose Override
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# All secrets MUST be provided as environment variables; never hard-code them.
+# =============================================================================
+
+name: aethel-workspace
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — no external port exposure in production
+  # ---------------------------------------------------------------------------
+  postgres:
+    restart: always
+    ports: []  # remove host port binding; reachable only on internal network
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "1.0"
+        reservations:
+          memory: 512m
+          cpus: "0.5"
+
+  # ---------------------------------------------------------------------------
+  # Backend
+  # ---------------------------------------------------------------------------
+  backend:
+    restart: always
+    environment:
+      AETHEL_ENV: production
+      AETHEL_DB_DSN: ${AETHEL_DB_DSN:?AETHEL_DB_DSN is required in production}
+      AETHEL_JWT_SECRET: ${AETHEL_JWT_SECRET:?AETHEL_JWT_SECRET is required}
+      AETHEL_JWT_RSA_PRIVATE_KEY: ${AETHEL_JWT_RSA_PRIVATE_KEY:-}
+      AETHEL_SMTP_PASSWORD: ${AETHEL_SMTP_PASSWORD:-}
+    volumes: []  # blueprints are baked into the production image; no mount
+    command: ["/bin/aethel", "serve"]
+    networks:
+      - internal
+      - external
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "0.5"
+        reservations:
+          memory: 256m
+          cpus: "0.25"
+
+  # ---------------------------------------------------------------------------
+  # Frontend
+  # ---------------------------------------------------------------------------
+  frontend:
+    restart: always
+    environment:
+      NUXT_PUBLIC_API_BASE_URL: ${NUXT_PUBLIC_API_BASE_URL:?NUXT_PUBLIC_API_BASE_URL is required}
+    networks:
+      - external
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "0.5"
+        reservations:
+          memory: 256m
+          cpus: "0.25"
+
+networks:
+  internal:
+    internal: true
+    name: aethel_internal
+  external:
+    name: aethel_external
