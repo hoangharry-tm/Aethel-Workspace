@@ -28,7 +28,7 @@ build/bin/          # Compiled output
 - 17 pages, 20 user stories, 3 roles (ADMIN / RECEPTION / USER), 0 TypeScript errors
 - Figma design export complete: file key `aqW7snNu6m0RoD0ZXrMH0f` (5 pages: Design System, Login, Dashboard, Intake Form + Document Detail, Mobile + Admin)
 
-**Phase 2 — Go Backend** (`aethel-core/`): Database design complete as of 2026-05-26. Migration SQL written; Go implementation not yet started.
+**Phase 2 — Go Backend** (`aethel-core/`): Architecture designed as of 2026-05-26. Database design complete; 40 migration SQL files written; full backend architecture documented (code, server, API routes, security); DevOps pipeline ready (Docker, K8s, GitHub Actions, Makefile). Go implementation begins Sprint 0.
 
 ## Frontend — `aethel-view/`
 
@@ -191,10 +191,45 @@ ER diagram: `docs/db-design.mmd` — open with any Mermaid renderer.
 
 | Document | Location |
 |---|---|
+| Docs conventions | `docs/CONVENTIONS.md` |
 | ER diagram | `docs/db-design.mmd` |
 | Blueprint YAML conventions | `docs/server-blueprint-conventions.md` |
 | Migration system design | `docs/migration-strategy.md` |
 | IT customisation guide | `docs/it-customization-guide.md` |
+| Go developer guide | `docs/go-developer-guide.md` |
+| Code architecture | `docs/architecture-code.md` |
+| Server architecture | `docs/architecture-server.md` |
+| API routes design | `docs/architecture-api-routes.md` |
+| Security architecture | `docs/architecture-security.md` |
+| Agile implementation plan | `docs/agile-implementation-plan.md` |
+| DevOps tooling recommendations | `docs/devops-tooling.md` |
+
+### DevOps layout
+
+```
+aethel-workspace/
+├── Makefile                   # all dev/build/test/deploy commands (make help)
+├── docker-compose.yml         # local dev: postgres + backend + frontend
+├── docker-compose.prod.yml    # production overrides
+├── .env.example               # copy to .env for local development
+├── aethel-view/Dockerfile     # 2-stage Nuxt production image
+├── aethel-core/Dockerfile     # 2-stage Go distroless production image
+├── k8s/                       # Kubernetes manifests (namespace: aethel-workspace)
+│   ├── postgres/              # StatefulSet + PVC + Service + Secret placeholder
+│   ├── backend/               # Deployment + HPA + ConfigMap + Secret placeholder
+│   ├── frontend/              # Deployment + HPA + Service
+│   └── ingress.yaml           # nginx ingress: /api → backend, / → frontend
+├── .github/workflows/
+│   ├── ci.yml                 # PR/push: test-backend + test-frontend + lint-yaml (parallel)
+│   ├── cd.yml                 # merge to main: build + push GHCR → deploy staging
+│   └── security.yml           # weekly: Trivy + govulncheck + gosec → GitHub Security
+└── aethel-scripts/
+    ├── setup-dev.sh           # first-time dev environment setup
+    ├── health-check.sh        # verify all services are running
+    ├── rotate-jwt-secret.sh   # generate + rotation checklist (never writes secret to disk)
+    ├── db-backup.sh           # pg_dump with gzip + optional S3 upload
+    └── k8s-rollout.sh         # migrate-then-rollout production deploy coordinator
+```
 
 ## Key Domain Concepts
 
