@@ -1,6 +1,6 @@
 <script setup lang="ts">
-definePageMeta({ layout: false })
-await navigateTo('/dashboard')
+definePageMeta({ layout: false });
+await navigateTo("/auth/login");
 </script>
 
 <template>

@@ -1,25 +1,26 @@
 <script setup lang="ts">
-import { useMockData } from '~/composables/useMockData'
+import { useMockData } from "~/composables/useMockData";
 
-definePageMeta({ layout: 'auth' })
+definePageMeta({ layout: "auth" });
 
-const { setRole } = useMockData()
-const router = useRouter()
+const { setRole } = useMockData();
+const router = useRouter();
 
 const form = reactive({
-  email: '',
-  password: '',
-})
+  email: "",
+  password: "",
+});
 
-const loading = ref(false)
+const loading = ref(false);
 
 async function handleLogin() {
-  loading.value = true
+  // TODO: add connection to BE service for authenticate user
+  loading.value = true;
   // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 800))
-  setRole('RECEPTION')
-  loading.value = false
-  await router.push('/dashboard')
+  await new Promise((resolve) => setTimeout(resolve, 800));
+  setRole("RECEPTION");
+  loading.value = false;
+  await router.push("/dashboard");
 }
 </script>
 
@@ -34,10 +35,7 @@ async function handleLogin() {
       </p>
     </div>
 
-    <form
-      class="space-y-4"
-      @submit.prevent="handleLogin"
-    >
+    <form class="space-y-4" @submit.prevent="handleLogin">
       <UFormField label="Email address" name="email">
         <UInput
           v-model="form.email"
