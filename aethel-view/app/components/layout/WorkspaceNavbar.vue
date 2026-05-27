@@ -60,17 +60,17 @@ const profileItems = computed(() => [
     {
       label: 'Switch Role: ADMIN',
       icon: 'i-lucide-shield',
-      click: () => setRole('ADMIN'),
+      onSelect: () => setRole('ADMIN'),
     },
     {
       label: 'Switch Role: RECEPTION',
       icon: 'i-lucide-inbox',
-      click: () => setRole('RECEPTION'),
+      onSelect: () => setRole('RECEPTION'),
     },
     {
       label: 'Switch Role: USER',
       icon: 'i-lucide-user-circle',
-      click: () => setRole('USER'),
+      onSelect: () => setRole('USER'),
     },
   ],
   [

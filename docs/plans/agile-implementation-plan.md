@@ -173,6 +173,7 @@ The **definition of done** for a sprint is: all listed deliverables are merged t
 - Outbound dispatch endpoints wired (handler already exists from Sprint 2, this sprint adds the missing admin-only attachment deletion and report aggregation queries)
 - Named queries added to `internal/database/queries/queries.yaml`: `admin.dispatch_volume_by_period`, `admin.user_activity_summary`, `search.fulltext_dispatches`
 - CSRF middleware added to the middleware stack for browser clients
+- **i18n**: install `@nuxtjs/i18n`; create `locales/en.json` and `locales/vi.json`; replace all hardcoded UI strings with `$t('key')` calls; wire active locale to `config.value.org.locale` from `useAppRuntimeConfig` so the admin's chosen locale (set via `PATCH /api/v1/admin/config/org`) takes effect immediately without a page reload; add locale key naming conventions to `aethel-view/CLAUDE.md`
 - End-to-end test with the Nuxt frontend: login → view inbox → create dispatch → view document detail → append green note — all using the real backend
 
 ### Definition of Done
