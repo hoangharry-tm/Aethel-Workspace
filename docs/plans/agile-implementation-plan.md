@@ -23,7 +23,7 @@ The **definition of done** for a sprint is: all listed deliverables are merged t
 
 - `go.mod` initialized with module path `aethel-core`; direct dependencies pinned: `cobra`, `gopkg.in/yaml.v3`, `github.com/lib/pq`, `github.com/go-chi/chi/v5`, `github.com/rs/zerolog`, `golang.org/x/crypto` (Argon2id), `github.com/golang-jwt/jwt/v5`, `github.com/google/uuid`
 - `cmd/aethel/main.go` with cobra root command and subcommands: `serve`, `migrate up`, `migrate down`, `migrate status`, `migrate validate`
-- `internal/blueprint/loader.go` — `LoadDatabaseConfig`, `LoadQueriesConfig`, `LoadRoutesConfig`; typed structs for all three YAML files; validation that fails fast on missing required fields
+- `internal/blueprint/loader.go` — `LoadDatabaseConfig`, `LoadQueriesConfig`; typed structs for both YAML files; validation that fails fast on missing required fields
 - `internal/database/connect.go` — `Open(*blueprint.EnvironmentConfig) (*sql.DB, error)`; DSN from env var or individual fields; pool configuration applied; `db.Ping()` on connect
 - `internal/database/blueprint_context.go` — `BlueprintContext` struct; `T()` and `E()` registered as `template.FuncMap`
 - `internal/database/migrator.go` — `Migrator.Up`, `Migrator.Down`, `Migrator.Status`, `Migrator.Validate`; advisory lock; history table creation; SHA-256 checksum recorded
@@ -51,8 +51,9 @@ The **definition of done** for a sprint is: all listed deliverables are merged t
 
 ### Deliverables
 
+- Seed loader: on first boot, load `blueprints/ui-theme.yaml` → insert into `branding_configs`; load `blueprints/ui-layouts.yaml` nav_seed → insert into `system_settings` key `nav_config`. Seeding is idempotent — skip if the org already has a row.
 - `internal/domain/` package: `Dispatch`, `DispatchEvent`, `MinuteSheet`, `GreenNote`, `AuditEntry`, `User`, `Session`, `Permission`, `RoutingRule`, `EscalationRule` types; `ErrNotFound`, `ErrForbidden`, `ErrConflict`, `ErrHashChainBroken` sentinel errors; repository interfaces for `User`, `Session`
-- `internal/database/query_registry.go` — `BuildQueryRegistry`; prepares all named statements from `server-queries.yaml` at startup; panics on missing key (programmer error)
+- `internal/database/query_registry.go` — `BuildQueryRegistry`; prepares all named statements from `internal/database/queries/queries.yaml` at startup; panics on missing key (programmer error)
 - `internal/service/auth_service.go` — `Register`, `Login` (Argon2id hash verify), `IssueAccessToken` (JWT), `IssueRefreshToken` (opaque random, stored in `user_sessions`), `RefreshSession`, `RevokeSession`, `RequestPasswordReset`, `ConfirmPasswordReset`
 - `internal/rbac/middleware.go` — `Require(permission string)` middleware factory; reads role from context; checks against hardcoded role-permission table; writes `403` and logs `PERMISSION_DENIED` audit event on failure
 - Auth handler `internal/api/handlers/auth.go` — POST `/auth/login`, POST `/auth/refresh`, POST `/auth/logout`, POST `/auth/password-reset/request`, POST `/auth/password-reset/confirm`
@@ -76,16 +77,17 @@ The **definition of done** for a sprint is: all listed deliverables are merged t
 
 ## Sprint 2 — Dispatch Pillar (Weeks 5–6)
 
-**Goal:** Implement the full DAK Diarization pillar: dispatch CRUD, routing rule engine, dispatch event log, intake API endpoints, and queue/inbox endpoints.
+**Goal:** Implement the full DAK Diarization pillar: dispatch CRUD, routing rule engine, dispatch event log, intake API endpoints, queue/inbox endpoints, and the runtime config API.
 
 ### Deliverables
 
+- Config API endpoints: `GET /api/v1/config`, `GET /api/v1/config/branding`, `GET /api/v1/config/nav`, `GET /api/v1/config/features`; `PATCH /api/v1/admin/config/branding`, `PATCH /api/v1/admin/config/nav`, `PATCH /api/v1/admin/config/features`, `PATCH /api/v1/admin/config/org`; in-memory per-org `ConfigCache` (5-min TTL) in `internal/config/`; cache invalidation on admin PATCH.
 - `internal/domain/` — `DispatchRepository`, `RoutingRuleRepository`, `DispatchEventRepository` interfaces; `RoutingRule`, `RoutingRuleCondition`, `RoutingRuleDestination`, `DispatchEvent` domain types
 - `internal/database/` — concrete implementations of `DispatchRepository`, `RoutingRuleRepository`, `DispatchEventRepository`; all queries scoped by `organization_id`
 - `internal/service/dispatch_service.go` — `CreateDispatch` (runs routing rule engine, appends `ROUTING_APPLIED` event), `GetDispatchByID`, `ListInbox` (calls named query from registry), `ListOutbound`, `AssignDispatch` (manual routing, appends `MANUALLY_ASSIGNED` event), `AcknowledgeDelivery`, `UpdateStatus`, `EvaluateRoutingRules` (priority-ordered rule matching: document_type + sender_org + urgency conditions)
 - `internal/api/handlers/dispatch.go` — all dispatch endpoints from the route table in `architecture-api-routes.md`
 - Audit events written to `audit_ledger` on: `DISPATCH_CREATED`, `DISPATCH_ASSIGNED`, `DISPATCH_DELIVERED`
-- Named queries added to `server-queries.yaml`: `dispatch.fetch_active_inbox`, `dispatch.fetch_outbound_queue`, `dispatch.search_by_tracking_number`, `dispatch.list_by_user`, `dispatch.timeline_events`
+- Named queries added to `internal/database/queries/queries.yaml`: `dispatch.fetch_active_inbox`, `dispatch.fetch_outbound_queue`, `dispatch.search_by_tracking_number`, `dispatch.list_by_user`, `dispatch.timeline_events`
 - Integration tests using a test database: create dispatch → routing rule matches → inbox query returns the dispatch → acknowledge delivery → status is DELIVERED
 
 ### Definition of Done
@@ -112,7 +114,7 @@ The **definition of done** for a sprint is: all listed deliverables are merged t
 - `internal/service/workflow_service.go` — `GetMinuteSheet`, `AppendGreenNote` (validates chain before insert using `pgcrypto.digest`), `ListGreenNotes`, `ApproveMinuteSheet`
 - Hash chain validation logic: fetch the last note in the minute sheet; compute expected hash as SHA-256 of `(new_content || new_sequence || author_id || previous_hash)`; compare against the stored `previous_hash` in the new note; reject with `ErrHashChainBroken` if mismatch
 - `internal/api/handlers/workflow.go` — all workflow endpoints
-- Named queries added to `server-queries.yaml`: `workflow.fetch_minute_sheet_with_notes`, `workflow.fetch_last_green_note`, `workflow.verify_hash_chain`
+- Named queries added to `internal/database/queries/queries.yaml`: `workflow.fetch_minute_sheet_with_notes`, `workflow.fetch_last_green_note`, `workflow.verify_hash_chain`
 - Audit event written to `audit_ledger` on: `GREEN_NOTE_APPENDED`
 - Unit tests for hash chain: append 5 notes, verify chain is intact; tamper with note 3, verify chain breaks at note 4
 
@@ -142,7 +144,7 @@ The **definition of done** for a sprint is: all listed deliverables are merged t
 - `internal/api/handlers/governance.go` — `GET /api/v1/audit-log`, `GET /api/v1/audit-log/verify`
 - `internal/service/escalation_service.go` — `EvaluateEscalationRules(ctx)`: queries dispatches that have exceeded their escalation threshold, applies the configured action (update status to ESCALATED, send notification, write audit event)
 - `internal/worker/escalation_worker.go` — goroutine launched in `main.go`; ticks on blueprint interval; calls `escalation_service.EvaluateEscalationRules`; logs results; respects context cancellation
-- Named queries added to `server-queries.yaml`: `governance.query_audit_ledger_paged`, `governance.fetch_overdue_dispatches_for_escalation`
+- Named queries added to `internal/database/queries/queries.yaml`: `governance.query_audit_ledger_paged`, `governance.fetch_overdue_dispatches_for_escalation`
 - Integration test: insert 10 audit rows, verify chain passes; corrupt one row in the database directly, verify the verification endpoint reports the break at the correct row
 
 ### Definition of Done
@@ -167,10 +169,9 @@ The **definition of done** for a sprint is: all listed deliverables are merged t
 - `internal/api/handlers/admin.go` — all admin endpoints: users CRUD, document types CRUD, routing rules CRUD, escalation rules CRUD, reports, settings, branding
 - `internal/transport/sse.go` — `SSEBroker` with `Publish(userID uuid.UUID, event Event)` and `ServeHTTP(w, r)`; goroutine-safe; cleans up closed connections
 - Notification endpoints: `GET /api/v1/notifications`, `PATCH /api/v1/notifications/{id}/read`, `GET /api/v1/notifications/stream` (SSE)
-- Route blueprint registry: `internal/blueprint/routes_config.go` struct implemented; `api/server.go` reads overrides from `server-routes.yaml` and applies pattern replacements to the chi router at startup; `permission` field validation enforced at startup
-- Blueprint file `blueprints/server-routes.yaml` finalized with all default routes (see `architecture-api-routes.md` route table) and the `overrides` section
+- Route registry finalized in `api/server.go`: all routes from the route table in `docs/architecture/architecture-api-routes.md` are registered; `permission` field validation enforced at startup; no blueprint overrides (routes are convention-driven)
 - Outbound dispatch endpoints wired (handler already exists from Sprint 2, this sprint adds the missing admin-only attachment deletion and report aggregation queries)
-- Named queries added to `server-queries.yaml`: `admin.dispatch_volume_by_period`, `admin.user_activity_summary`, `search.fulltext_dispatches`
+- Named queries added to `internal/database/queries/queries.yaml`: `admin.dispatch_volume_by_period`, `admin.user_activity_summary`, `search.fulltext_dispatches`
 - CSRF middleware added to the middleware stack for browser clients
 - End-to-end test with the Nuxt frontend: login → view inbox → create dispatch → view document detail → append green note — all using the real backend
 
@@ -178,7 +179,6 @@ The **definition of done** for a sprint is: all listed deliverables are merged t
 
 - All 50+ API endpoints in the route table return non-500 responses for valid authenticated requests
 - The SSE stream delivers a notification event to a connected browser client within 2 seconds of the triggering action
-- Pattern overrides in `server-routes.yaml` are reflected in the chi router (verified by requesting the custom path and confirming the handler responds)
 - The Nuxt frontend can be pointed at the running backend and complete the full reception workflow (US-01 through US-06)
 
 ### Dependencies

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Aethel Workspace is a configuration-driven e-office platform. Its defining architectural trait is **compile-time injection**: YAML blueprints are baked into the binary at build time rather than loaded at runtime. IT admins edit blueprints to restyle, restructure, or reconfigure the system without touching source code.
+Aethel Workspace is a configuration-driven e-office platform. Its defining architectural trait is **runtime-configurable with compile-time defaults**: two IT-facing YAML blueprints provide seed values loaded once at first boot; all runtime configuration (branding, navigation, features) is stored in PostgreSQL and edited through the `/admin/*` pages. The Go backend serves config via `GET /api/v1/config` with a per-org in-memory cache (5-min TTL), embedded in the initial SSR HTML — zero client-side config round-trips.
 
 The system is organized around three domain pillars:
 1. **DAK Diarization** — inbound correspondence intake and tracking
@@ -28,7 +28,7 @@ build/bin/          # Compiled output
 - 17 pages, 20 user stories, 3 roles (ADMIN / RECEPTION / USER), 0 TypeScript errors
 - Figma design export complete: file key `aqW7snNu6m0RoD0ZXrMH0f` (5 pages: Design System, Login, Dashboard, Intake Form + Document Detail, Mobile + Admin)
 
-**Phase 2 — Go Backend** (`aethel-core/`): Architecture designed as of 2026-05-26. Database design complete; 40 migration SQL files written; full backend architecture documented (code, server, API routes, security); DevOps pipeline ready (Docker, K8s, GitHub Actions, Makefile). Go implementation begins Sprint 0.
+**Phase 2 — Go Backend** (`aethel-core/`): Architecture designed as of 2026-05-26; architectural pivot to runtime-configurable completed 2026-05-27. Database design complete: 42 migration SQL files written (migrations 1–20 original, migration 21 extends `branding_configs`); full backend architecture documented; config API designed (`GET /api/v1/config`, `PATCH /api/v1/admin/config/*`, in-memory cache); DevOps pipeline ready. Go implementation begins Sprint 0.
 
 ## Frontend — `aethel-view/`
 
@@ -88,8 +88,9 @@ All pages use either `layout: 'workspace'` or `layout: 'auth'`. The workspace la
 | `/admin/escalation` | `pages/admin/escalation.vue` | ADMIN |
 | `/admin/audit-log` | `pages/admin/audit-log.vue` | ADMIN (sys_admin) |
 | `/admin/reports` | `pages/admin/reports.vue` | ADMIN |
-| `/admin/settings` | `pages/admin/settings.vue` | ADMIN |
-| `/admin/branding` | `pages/admin/branding.vue` | ADMIN |
+| `/admin/settings` | `pages/admin/settings.vue` | ADMIN — org profile, feature toggles, DB alias display |
+| `/admin/branding` | `pages/admin/branding.vue` | ADMIN — live color picker, font selector, logo upload, preview panel |
+| `/admin/navigation` | `pages/admin/navigation.vue` | ADMIN — nav tree editor (reorder, visibility, rename, add item) |
 
 ### Components
 
@@ -103,25 +104,37 @@ All pages use either `layout: 'workspace'` or `layout: 'auth'`. The workspace la
 - `DocumentStatusBadge.vue` — `UBadge` for all 7 status states
 - `EventTimeline.vue` — vertical step list with colored dot + connector line; read-only audit trail
 
+**Blocks** (`app/components/blocks/`): — self-contained cards for admin custom pages
+- `BlockStatCard.vue` — KPI card with icon, large value, emerald/rose trend badge
+- `BlockDataTable.vue` — sortable table card with empty state
+- `BlockFormBuilder.vue` — 2-col form grid with field type dispatch (text/select/date/textarea)
+- `BlockTimeline.vue` — vertical connector timeline (same dot pattern as EventTimeline)
+- `BlockRichText.vue` — prose content card; if `editable`, shows textarea + save button
+- `BlockQuickActions.vue` — horizontal flex of outline UButtons with icon+label
+
 ### Composables
 
 - `useMockData()` — `useState`-backed shared state; exports `currentUser` (switchable via `setRole(role)`), `documents` (10 records), `notifications` (5), `routingRules` (5), `users` (8). Default user on load: Marcus Webb (RECEPTION). Role map: ADMIN → Alice Thornton, RECEPTION → Marcus Webb, USER → Priya Sharma.
 - `useNotificationDrawer()` — `useState('notif-drawer')` boolean; exposes `open()`, `close()`, `toggle()`
 - `useSidebarDrawer()` — same pattern for mobile sidebar
+- `useAppRuntimeConfig()` — `useState<AppRuntimeConfig>('app-runtime-config', ...)` SSR-safe config; exports `config`, `isLoading`, `refresh()`, `updateBranding(partial)`, `updateOrg(partial)`, `updateFeatures(partial)`, `updateNav(groups)`. Shape matches planned `GET /api/v1/config`. WorkspaceSidebar reads `config.nav` with hardcoded fallback.
 
 ## Blueprint System
 
+Only two files are IT-admin facing. All other configuration is managed via the `/admin/*` pages and stored in PostgreSQL.
+
 | File | Status |
 |---|---|
-| `blueprints/ui-theme.yaml` | **FILLED** — indigo/slate palette, urgency + status color maps, surface tokens, type scale, animation tokens |
-| `blueprints/ui-components.yaml` | **FILLED** — 7 components: urgency_badge, document_status_badge, queue_card, event_timeline, intake_form, notification_item, routing_rule_row |
-| `blueprints/ui-layouts.yaml` | **FILLED** — auth + workspace + document_examiner layouts, full nav tree, 17-route page registry |
-| `blueprints/server-database.yaml` | **FILLED** — connection, pooling, schema aliases, partitioning, extensions, performance guardrails. JSON Schema at `blueprints/schemas/server-database.schema.json`. |
-| `blueprints/server-queries.yaml` | stub — placeholder queries present; full queries to be added in Phase 2. JSON Schema at `blueprints/schemas/server-queries.schema.json`. |
+| `blueprints/ui-theme.yaml` | **SEED** — branding seed (5 fields: primary_color, neutral_palette, font_family, wordmark, logo_path); runtime config in `branding_configs` table |
+| `blueprints/ui-components.yaml` | **BLOCK REGISTRY** — 6 block type definitions for admin page builder; IT uses `/admin/navigation`, not this file |
+| `blueprints/ui-layouts.yaml` | **NAV SEED** — nav tree for first-boot seeding; runtime nav in `system_settings` key `nav_config` |
+| `blueprints/server-database.yaml` | **FILLED** — unchanged; the only IT-admin facing YAML file for DB connection + naming. JSON Schema at `blueprints/schemas/server-database.schema.json`. |
+| `server-queries.yaml` | **MOVED** — now at `aethel-core/internal/database/queries/queries.yaml`; internal developer file, not IT-facing |
+| `server-routes.yaml` | **DELETED** — routes are convention-driven, not IT-configurable |
 
 `blueprints/examples/` holds reference schemas — do not modify; they are the canonical source for future blueprint authors.
 
-`blueprints/schemas/` holds JSON Schema files for editor validation (`yaml-language-server` modeline is set at the top of each blueprint file so Neovim/VS Code validates against the project's own schema, not SchemaStore's "Quali Torque" schema which falsely matches `**/blueprints/**.yaml`).
+`blueprints/schemas/` holds the JSON Schema file for `server-database.yaml` editor validation.
 
 ## Go Backend — `aethel-core/`
 
@@ -132,10 +145,16 @@ All pages use either `layout: 'workspace'` or `layout: 'auth'`. The workspace la
 ```
 aethel-core/
 └── internal/
+    ├── config/                   # (Sprint 2) in-memory config cache + API handlers
+    │   ├── cache.go              # ConfigCache: per-org map, 5-min TTL
+    │   ├── loader.go             # LoadOrgConfig: queries branding_configs + system_settings
+    │   └── handler.go            # GET /api/v1/config, PATCH /api/v1/admin/config/*
     └── database/
         ├── migrator.go           # (to be written) blueprint-rendered migration runner
         ├── blueprint_context.go  # (to be written) T(), E(), Schema template helpers
-        └── migrations/           # 40 SQL files (20 up + 20 down) — WRITTEN ✓
+        ├── queries/
+        │   └── queries.yaml      # named SQL queries (internal developer file, not IT-facing)
+        └── migrations/           # 42 SQL files (21 up + 21 down) — WRITTEN ✓
 ```
 
 ### Migration system
@@ -153,7 +172,7 @@ aethel migrate validate    # dry-run: render templates, check SQL syntax
 aethel migrate down --steps 1   # roll back last migration
 ```
 
-### Database schema (20 tables, 3 pillars)
+### Database schema (20 tables + migration 21, 3 pillars)
 
 ER diagram: `docs/db-design.mmd` — open with any Mermaid renderer.
 
@@ -174,11 +193,12 @@ ER diagram: `docs/db-design.mmd` — open with any Mermaid renderer.
 | 13 | `green_notes` (Pillar 2 — cryptographic chain) |
 | 14 | `notifications` |
 | 15 | `escalation_rules` |
-| 16 | `system_settings` (key-value store) |
+| 16 | `system_settings` (key-value store; holds `nav_config` JSON after first boot) |
 | 17 | `branding_configs` |
 | 18 | `audit_ledger` (Pillar 3 — PARTITION BY RANGE monthly) |
 | 19 | Pre-provisioned audit_ledger monthly partitions (12 back, 3 ahead) |
 | 20 | `set_updated_at()` function + triggers on all `updated_at` tables |
+| 21 | ALTER `branding_configs`: ADD `neutral_palette`, `font_family`, `wordmark` (supports runtime branding editor) |
 
 ### Key schema decisions
 
@@ -193,16 +213,17 @@ ER diagram: `docs/db-design.mmd` — open with any Mermaid renderer.
 |---|---|
 | Docs conventions | `docs/CONVENTIONS.md` |
 | ER diagram | `docs/db-design.mmd` |
-| Blueprint YAML conventions | `docs/server-blueprint-conventions.md` |
-| Migration system design | `docs/migration-strategy.md` |
-| IT customisation guide | `docs/it-customization-guide.md` |
-| Go developer guide | `docs/go-developer-guide.md` |
-| Code architecture | `docs/architecture-code.md` |
-| Server architecture | `docs/architecture-server.md` |
-| API routes design | `docs/architecture-api-routes.md` |
-| Security architecture | `docs/architecture-security.md` |
-| Agile implementation plan | `docs/agile-implementation-plan.md` |
-| DevOps tooling recommendations | `docs/devops-tooling.md` |
+| Blueprint YAML conventions | `docs/guides/server-blueprint-conventions.md` |
+| Migration system design | `docs/plans/migration-strategy.md` |
+| IT customisation guide | `docs/guides/it-customization-guide.md` |
+| Go developer guide | `docs/guides/go-developer-guide.md` |
+| Code architecture | `docs/architecture/architecture-code.md` |
+| Server architecture | `docs/architecture/architecture-server.md` |
+| API routes + config API | `docs/architecture/architecture-api-routes.md` |
+| Security architecture | `docs/architecture/architecture-security.md` |
+| Agile implementation plan | `docs/plans/agile-implementation-plan.md` |
+| DevOps tooling recommendations | `docs/devops/devops-tooling.md` |
+| Runtime config flow diagram | `docs/diagrams/runtime-config-flow.mmd` |
 
 ### DevOps layout
 

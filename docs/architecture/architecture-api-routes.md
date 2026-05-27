@@ -1,122 +1,47 @@
-# Architecture — API Route Design and Blueprint Configuration
+# Architecture — API Route Design
 
 **Audience:** Go engineers, IT administrators
 **Status:** Active
 
-Diagram: [docs/diagrams/api-route-resolution.mmd](diagrams/api-route-resolution.mmd)
+Diagram: [docs/diagrams/api-route-resolution.mmd](../diagrams/api-route-resolution.mmd)
 
 ---
 
 ## Design Philosophy
 
-API routes in Aethel Core follow the same compile-time injection pattern as all other configurable elements. Each route has a set of hardcoded defaults baked into the Go binary: a pattern, an HTTP method, a handler reference, and a required permission. These defaults are production-ready and require no blueprint to function.
+API routes in Aethel Core are convention-driven by the domain model. Each route has hardcoded defaults baked into the Go binary: a pattern, an HTTP method, a handler reference, and a required permission. These defaults are production-ready and require no blueprint to function.
 
-The `blueprints/server-routes.yaml` file is an **override layer**, not a definition layer. An IT admin who wants to rename `/api/v1/dispatches` to `/api/v1/dak/documents` edits the blueprint; they do not touch Go code. A deployment that has no `server-routes.yaml` overrides gets the default paths, default timeouts, and default rate limits.
+Routes are not IT-configurable. The `blueprints/server-routes.yaml` file no longer exists — route renaming was removed in the architectural pivot to runtime-configurable with compile-time defaults (2026-05-27). If a deployment requires custom path prefixes, configure a reverse proxy (Nginx, Caddy) to rewrite paths before they reach the Go server.
 
-This design has a specific consequence: every route must have a `permission` field. The blueprint loader rejects any route definition — default or override — that is missing a permission. A route with no permission check cannot exist in this system.
+This design has a specific consequence: every route must have a `permission` field. The router registration rejects any route definition that is missing a permission. A route with no permission check cannot exist in this system.
 
 ---
 
-## Blueprint File Structure
+## Runtime Configuration API
 
-The `blueprints/server-routes.yaml` file is documented in full below, and a working copy lives at `blueprints/server-routes.yaml`. This section describes the schema.
+The config API serves organization branding, navigation structure, and feature flags to the Nuxt SSR frontend. All endpoints under `/api/v1/config` are served from an in-memory per-org cache (5-min TTL). Admin PATCH endpoints invalidate the cache entry for the affected organization.
 
-### `metadata`
+### Read endpoints (all authenticated, `dispatch.view` minimum)
 
-```yaml
-metadata:
-  version: "1.0.0"
-  engine_target: "aethel-core-1.x"
-  strict_validation: true
-```
-
-Same structure as other blueprint files. `engine_target` identifies the minimum backend version that understands this schema.
-
-### `global_route_defaults`
-
-Applied to every route unless overridden at the group or route level.
-
-```yaml
-global_route_defaults:
-  base_path: "/api/v1"
-  timeout_ms: 10000
-  rate_limit_rpm: 600
-```
-
-| Field | Type | Default | Notes |
+| Method | Pattern | Permission | Description |
 |---|---|---|---|
-| `base_path` | string | `"/api/v1"` | Prefix prepended to all route patterns. Change to `/api/v2` for a version migration. |
-| `timeout_ms` | integer | `10000` | Maximum time a handler is allowed to run before the request is cancelled. |
-| `rate_limit_rpm` | integer | `600` | Requests per minute per IP (unauthenticated) or per user (authenticated). |
+| GET | `/api/v1/config` | `dispatch.view` | Full org config (branding + nav + features + org profile); cached |
+| GET | `/api/v1/config/branding` | `dispatch.view` | Branding fields only |
+| GET | `/api/v1/config/nav` | `dispatch.view` | Nav seed + any runtime overrides stored in `system_settings` |
+| GET | `/api/v1/config/features` | `dispatch.view` | Feature flags |
 
-### `route_groups`
+### Write endpoints (admin only)
 
-Groups bundle related routes and allow group-level defaults to override globals.
-
-```yaml
-route_groups:
-  dispatch:
-    permission: "dispatch.view"
-    rate_limit_rpm: 300
-    routes:
-      - method: GET
-        pattern: "/dispatches"
-        handler: "handlers.dispatch.ListInbox"
-        permission: "dispatch.view"
-        description: "List active inbound dispatch queue"
-```
-
-| Field | Type | Required | Notes |
+| Method | Pattern | Permission | Description |
 |---|---|---|---|
-| `permission` | string | yes | Default permission for routes in this group. Individual routes may override. |
-| `rate_limit_rpm` | integer | no | Overrides `global_route_defaults.rate_limit_rpm` for this group. |
-| `routes` | list | yes | Route definitions (see below). |
+| PATCH | `/api/v1/admin/config/branding` | `admin.access` | Update branding; invalidates org cache |
+| PATCH | `/api/v1/admin/config/nav` | `admin.access` | Update nav overrides; invalidates org cache |
+| PATCH | `/api/v1/admin/config/features` | `admin.access` | Update feature flags; invalidates org cache |
+| PATCH | `/api/v1/admin/config/org` | `admin.access` | Update org profile |
 
-### Route definition fields
+### Cache invalidation pattern
 
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `method` | string | yes | HTTP method: `GET`, `POST`, `PUT`, `PATCH`, `DELETE` |
-| `pattern` | string | yes | URL pattern relative to `base_path` + group prefix. Supports `{param:regex}` constraints. |
-| `handler` | string | yes | Dot-notation reference: `handlers.<group>.<FunctionName>`. Resolved at startup. |
-| `permission` | string | yes | RBAC permission required. Blueprint loader rejects missing values. |
-| `rate_limit_rpm` | integer | no | Per-route override. |
-| `timeout_ms` | integer | no | Per-route override. |
-| `description` | string | no | Human-readable description. Ignored at runtime. |
-
-### `overrides`
-
-Maps a default route pattern to a deployment-specific pattern. The Go binary uses the override value when building the chi router.
-
-```yaml
-overrides:
-  - default: "/api/v1/dispatches"
-    custom: "/api/v1/dak/documents"
-  - default: "/api/v1/dispatches/{id:uuid}"
-    custom: "/api/v1/dak/documents/{id:uuid}"
-```
-
-The override applies to the full path including `base_path`. Both the `default` and `custom` values must include the base path.
-
-### `auth`
-
-JWT configuration for the auth middleware.
-
-```yaml
-auth:
-  jwt_algorithm: "RS256"          # HS256 | RS256
-  access_token_ttl_minutes: 15
-  refresh_token_ttl_days: 7
-```
-
-### `worker`
-
-Background worker configuration.
-
-```yaml
-worker:
-  escalation_tick_seconds: 60
-```
+On a successful PATCH, the Go handler calls `cache.Invalidate(orgID)` which removes the org's entry from the in-memory map. The next `GET /api/v1/config` request for that org triggers a fresh DB read and re-populates the cache. The frontend calls `refresh()` from `useRuntimeConfig()` immediately after a successful PATCH to update local state without a full page reload.
 
 ---
 
@@ -137,17 +62,14 @@ The `uuid` constraint is a named pattern registered in `api/server.go` at startu
 
 ## Route Registry at Startup
 
-The route registry is built in `api/server.go` during server initialization, after the blueprint is loaded. The process:
+The route registry is built in `api/server.go` during server initialization. The process:
 
 1. The hardcoded default routes are defined as a slice of `RouteDefinition` structs in the Go binary.
-2. The `server-routes.yaml` blueprint is loaded and validated by `internal/blueprint/`.
-3. For each route in the defaults slice, the registry checks whether an override exists in the blueprint's `overrides` section. If yes, the custom pattern replaces the default pattern.
-4. Group-level and route-level `rate_limit_rpm` and `timeout_ms` overrides from the blueprint are applied.
-5. Each route is validated: `permission` must be non-empty; pattern syntax must parse; handler reference must resolve to a registered function.
-6. The chi router is populated: groups become sub-routers with scoped middleware; routes are registered with their (possibly overridden) patterns.
-7. The RBAC middleware for each route is wired using the route's `permission` field, resolved at startup. A misconfigured permission string causes the process to exit at step 5, not at request time.
+2. Each route is validated: `permission` must be non-empty; pattern syntax must parse; handler reference must resolve to a registered function.
+3. The chi router is populated: groups become sub-routers with scoped middleware; routes are registered with their patterns.
+4. The RBAC middleware for each route is wired using the route's `permission` field, resolved at startup. A misconfigured permission string causes the process to exit at step 2, not at request time.
 
-A blueprint that adds a completely new route (not in the defaults) is not supported in v1. The blueprint can only override, not extend, the default route set. This is intentional: new routes require Go code review and deployment.
+Adding a new route requires Go code — write the handler, add the route definition to `api/server.go`, and deploy a new binary. Routes are not runtime-configurable.
 
 ---
 

@@ -11,20 +11,17 @@ Aethel Core does not require a third-party identity provider. All authentication
 
 Passwords are hashed with **Argon2id** before storage. Argon2id is the winner of the Password Hashing Competition (2015) and is the current OWASP recommendation for password hashing.
 
-The cost parameters are configurable in the blueprint:
+The cost parameters are hardcoded as Go constants with OWASP-recommended defaults and configurable via environment variables:
 
-```yaml
-# server-routes.yaml
-auth:
-  argon2id:
-    memory_kib: 65536    # 64 MiB — increase for higher security margin
-    iterations: 3
-    parallelism: 4
-    salt_length: 16
-    key_length: 32
-```
+| Parameter | Default | Environment variable |
+|---|---|---|
+| `memory_kib` | 65536 (64 MiB) | `AETHEL_ARGON2_MEMORY_KIB` |
+| `iterations` | 3 | `AETHEL_ARGON2_ITERATIONS` |
+| `parallelism` | 4 | `AETHEL_ARGON2_PARALLELISM` |
+| `salt_length` | 16 | — (not configurable) |
+| `key_length` | 32 | — (not configurable) |
 
-The default parameters (64 MiB, 3 iterations, 4 threads) are within OWASP's minimum recommendations for interactive logins. A production deployment that is not under severe memory pressure should increase `memory_kib` to at least 128 MiB.
+The default parameters (64 MiB, 3 iterations, 4 threads) are within OWASP's minimum recommendations for interactive logins. A production deployment that is not under severe memory pressure should set `AETHEL_ARGON2_MEMORY_KIB=131072` (128 MiB).
 
 The hash format stored in the database is the PHC string format: `$argon2id$v=19$m=65536,t=3,p=4$<salt>$<hash>`. This format embeds the algorithm, version, and parameters, so stored hashes are self-describing and can be verified even if the cost parameters change in the blueprint.
 
@@ -79,7 +76,7 @@ Three layers of rate limiting are applied:
 
 **Per-endpoint cap** — Route groups can declare a lower `rate_limit_rpm` than the global default. This prevents specific high-cost operations (file upload, report generation) from saturating the server.
 
-All three layers use token buckets. The bucket capacity equals the RPM limit; the refill rate is `rpm / 60` tokens per second. The current implementation is in-process (a `sync.Map` of bucket state keyed by IP or user ID). For horizontally scaled deployments, the blueprint allows setting `rate_limit_rpm: 0` to disable in-process limiting and delegate to the reverse proxy.
+All three layers use token buckets. The bucket capacity equals the RPM limit; the refill rate is `rpm / 60` tokens per second. The current implementation is in-process (a `sync.Map` of bucket state keyed by IP or user ID). For horizontally scaled deployments, configure rate limiting at the reverse proxy layer (Nginx `limit_req_zone`, Caddy rate limit plugin) and the in-process limiter will be a secondary layer.
 
 ---
 

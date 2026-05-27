@@ -3,7 +3,7 @@
 **Audience:** Go engineers working in `aethel-core/`
 **Status:** Active
 
-Diagram: [docs/diagrams/architecture-code.mmd](diagrams/architecture-code.mmd)
+Diagram: [docs/diagrams/architecture-code.mmd](../diagrams/architecture-code.mmd)
 
 ---
 
@@ -27,9 +27,11 @@ aethel-core/
 ├── internal/
 │   ├── blueprint/
 │   │   ├── loader.go            # load + validate YAML into typed structs
-│   │   ├── database_config.go   # DatabaseConfig struct
-│   │   ├── queries_config.go    # QueriesConfig struct
-│   │   └── routes_config.go     # RoutesConfig struct (server-routes.yaml)
+│   │   └── database_config.go   # DatabaseConfig struct (server-database.yaml only)
+│   ├── config/
+│   │   ├── cache.go             # ConfigCache: per-org in-memory cache, 5-min TTL
+│   │   ├── loader.go            # LoadOrgConfig: queries branding_configs + system_settings
+│   │   └── handler.go           # GET /api/v1/config, PATCH /api/v1/admin/config/*
 │   ├── domain/
 │   │   ├── dispatch.go          # Dispatch, DispatchEvent, RoutingRule types
 │   │   ├── workflow.go          # MinuteSheet, GreenNote types
@@ -41,7 +43,9 @@ aethel-core/
 │   │   ├── blueprint_context.go # T(), E(), Schema template helpers
 │   │   ├── migrator.go          # migration runner
 │   │   ├── query_registry.go    # load + prepare named queries at startup
-│   │   └── migrations/          # 40 SQL template files (up + down)
+│   │   ├── queries/
+│   │   │   └── queries.yaml     # named SQL queries (internal developer file)
+│   │   └── migrations/          # 42 SQL template files (up + down)
 │   ├── service/
 │   │   ├── dispatch_service.go  # routing rule engine, dispatch lifecycle
 │   │   ├── workflow_service.go  # minute sheet management, green note chaining
@@ -90,7 +94,7 @@ Domain types are plain Go structs with no framework dependencies. Repository int
 
 This package owns everything that touches the database: `*sql.DB` management, migration rendering and execution, and the named query registry. It implements the repository interfaces defined in `internal/domain/`.
 
-No package other than `internal/database/` may construct raw SQL strings. This rule enforces that all SQL is either in a migration file or in `server-queries.yaml`.
+No package other than `internal/database/` may construct raw SQL strings. This rule enforces that all SQL is either in a migration file or in `internal/database/queries/queries.yaml`.
 
 ### `internal/service/` — application logic
 
@@ -104,7 +108,7 @@ The escalation worker runs as a goroutine launched by `cmd/`. It ticks on a blue
 
 ### `internal/rbac/` — cross-cutting access control
 
-The RBAC middleware reads the authenticated user's role (set on the request context by the auth middleware) and checks it against the required permission for the route. Permission strings are defined in `domain/` and referenced in `server-queries.yaml` and `server-routes.yaml`.
+The RBAC middleware reads the authenticated user's role (set on the request context by the auth middleware) and checks it against the required permission for the route. Permission strings are defined in `domain/` and referenced in `internal/database/queries/queries.yaml`.
 
 `rbac/` is imported by `api/` (which wires the middleware) and by `service/` (for programmatic permission checks in service functions). It never imports `api/`.
 

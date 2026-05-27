@@ -30,17 +30,33 @@ If a tool generates it, it does not live here.
 
 ---
 
+## Subdirectory organization
+
+The `docs/` folder is organized into four subdirectories plus the root:
+
+| Subdirectory | Contents |
+|---|---|
+| `docs/architecture/` | Architecture decision records and design documents for the Go backend |
+| `docs/guides/` | Developer and IT administrator reference guides |
+| `docs/plans/` | Sprint plans, implementation roadmaps, and strategy documents |
+| `docs/devops/` | DevSecOps tooling, CI/CD pipeline, and operational references |
+| `docs/diagrams/` | Mermaid source files for all system diagrams |
+| `docs/` (root) | `CONVENTIONS.md` (this file) and `db-design.mmd` (special case — ER diagram kept at root for direct reference from CLAUDE.md) |
+
+---
+
 ## Naming conventions
 
 ### Architecture documents
 
+Directory: `docs/architecture/`
 Prefix: `architecture-`
 
 ```
-architecture-code.md        # Package structure and code design patterns
-architecture-server.md      # Server components, middleware stack, request flow
-architecture-api-routes.md  # API route design and blueprint configuration
-architecture-security.md    # Embedded security measures
+architecture/architecture-code.md        # Package structure and code design patterns
+architecture/architecture-server.md      # Server components, middleware stack, request flow
+architecture/architecture-api-routes.md  # API route design and runtime config endpoints
+architecture/architecture-security.md    # Embedded security measures
 ```
 
 ### Diagrams
@@ -53,34 +69,47 @@ diagrams/architecture-overview.mmd     # High-level system overview
 diagrams/architecture-code.mmd         # Package dependency graph
 diagrams/server-request-flow.mmd       # HTTP request lifecycle
 diagrams/api-route-resolution.mmd      # Route resolution at startup
+diagrams/devops-pipeline.mmd           # CI/CD pipeline and production infrastructure
+diagrams/runtime-config-flow.mmd       # Runtime config fetch flow (SSR → Go → cache → DB)
 ```
 
 Diagrams are always Mermaid source files. They are referenced from Markdown documents using a relative path. They are never committed as rendered images.
 
 ### Guides
 
+Directory: `docs/guides/`
 Suffix: `-guide.md`
 
 ```
-go-developer-guide.md           # Reference for Go engineers working in aethel-core/
-it-customization-guide.md       # Reference for IT administrators deploying the system
-server-blueprint-conventions.md # YAML blueprint field reference
+guides/go-developer-guide.md           # Reference for Go engineers working in aethel-core/
+guides/it-customization-guide.md       # Reference for IT administrators deploying the system
+guides/server-blueprint-conventions.md # YAML blueprint field reference
 ```
 
 ### Plans
 
+Directory: `docs/plans/`
 Suffix: `-plan.md`
 
 ```
-agile-implementation-plan.md    # Sprint breakdown for Phase 2 Go backend
+plans/agile-implementation-plan.md    # Sprint breakdown for Phase 2 Go backend
 ```
 
 ### Strategy and design documents
 
+Directory: `docs/plans/`
 Suffix: none (free-form descriptive name)
 
 ```
-migration-strategy.md           # Rationale for blueprint-rendered SQL migrations
+plans/migration-strategy.md           # Rationale for blueprint-rendered SQL migrations
+```
+
+### DevOps documents
+
+Directory: `docs/devops/`
+
+```
+devops/devops-tooling.md    # DevSecOps tool recommendations: registry, observability, scanning
 ```
 
 ---
@@ -123,19 +152,20 @@ Do not commit rendered PNG or SVG exports. The `.mmd` source is the single sourc
 | File | Purpose | Audience |
 |---|---|---|
 | `CONVENTIONS.md` | Docs folder organization rules (this file) | All contributors |
-| `go-developer-guide.md` | Blueprint loading, migration rendering, query registry, startup sequence | Go engineers |
-| `it-customization-guide.md` | Database setup, schema customization, migrations, query tuning via YAML | IT administrators |
-| `server-blueprint-conventions.md` | YAML field reference for `server-database.yaml` and `server-queries.yaml` | IT administrators, Go engineers |
-| `migration-strategy.md` | Rationale and design of blueprint-rendered SQL migrations | Go engineers, IT administrators |
-| `agile-implementation-plan.md` | Sprint breakdown for Phase 2 Go backend implementation | Project leads, Go engineers |
-| `architecture-code.md` | Package structure, layering rationale, dependency rules | Go engineers |
-| `architecture-server.md` | Server components, middleware stack, request lifecycle | Go engineers |
-| `architecture-api-routes.md` | API route design and `server-routes.yaml` blueprint configuration | Go engineers, IT administrators |
-| `architecture-security.md` | Embedded security measures: auth, CSRF, rate limiting, audit chain | Go engineers, security reviewers |
-| `db-design.mmd` | Entity-relationship diagram for all 20 database tables | Go engineers, IT administrators |
+| `db-design.mmd` | Entity-relationship diagram for all 21 database tables | Go engineers, IT administrators |
+| `architecture/architecture-code.md` | Package structure, layering rationale, dependency rules | Go engineers |
+| `architecture/architecture-server.md` | Server components, middleware stack, request lifecycle, runtime config fetch flow | Go engineers |
+| `architecture/architecture-api-routes.md` | API route design and runtime configuration endpoints | Go engineers, IT administrators |
+| `architecture/architecture-security.md` | Embedded security measures: auth, CSRF, rate limiting, audit chain | Go engineers, security reviewers |
+| `guides/go-developer-guide.md` | Blueprint loading, migration rendering, query registry, config API, startup sequence | Go engineers |
+| `guides/it-customization-guide.md` | Database setup, schema customization, migrations, query tuning via YAML | IT administrators |
+| `guides/server-blueprint-conventions.md` | YAML field reference for `server-database.yaml` | IT administrators, Go engineers |
+| `plans/agile-implementation-plan.md` | Sprint breakdown for Phase 2 Go backend implementation | Project leads, Go engineers |
+| `plans/migration-strategy.md` | Rationale and design of blueprint-rendered SQL migrations | Go engineers, IT administrators |
+| `devops/devops-tooling.md` | DevSecOps tool recommendations: registry, observability, scanning, secrets | All contributors |
 | `diagrams/architecture-overview.mmd` | High-level system overview: frontend, backend, database, blueprints | All contributors |
 | `diagrams/architecture-code.mmd` | Package dependency graph for `aethel-core/` | Go engineers |
 | `diagrams/server-request-flow.mmd` | HTTP request lifecycle through the middleware stack | Go engineers |
 | `diagrams/api-route-resolution.mmd` | Route registration process at startup | Go engineers |
-| `devops-tooling.md` | DevSecOps tool recommendations: registry, observability, scanning, secrets | All contributors |
 | `diagrams/devops-pipeline.mmd` | CI/CD pipeline and production infrastructure diagram | DevOps, project leads |
+| `diagrams/runtime-config-flow.mmd` | Runtime config fetch flow: SSR → Go API → in-memory cache → DB | Go engineers, frontend engineers |

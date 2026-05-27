@@ -1,0 +1,32 @@
+sequenceDiagram
+    participant B as Employee Browser
+    participant N as Nuxt SSR Server
+    participant G as Go API
+    participant C as In-Memory Cache
+    participant DB as PostgreSQL
+
+    B->>N: GET /dashboard
+    N->>G: GET /api/v1/config (org_id from session)
+    G->>C: lookup org_id
+    alt cache hit
+        C->>G: config JSON
+    else cache miss
+        G->>DB: SELECT branding_configs + system_settings
+        DB->>G: config rows
+        G->>C: store (TTL 5m)
+    end
+    G->>N: 200 config JSON
+    N->>B: HTML (config hydrated in __NUXT_DATA__)
+    Note over B: Zero extra config request — config is in the HTML
+
+    B->>G: (user actions, NOT config re-fetching)
+
+    rect rgb(240, 248, 255)
+        Note over B,DB: Admin saves branding change
+        B->>G: PATCH /api/v1/admin/config/branding
+        G->>DB: UPDATE branding_configs
+        DB->>G: success
+        G->>C: delete org_id entry
+        G->>B: 200 updated config
+        B->>B: useRuntimeConfig().refresh() → update local state
+    end

@@ -3,11 +3,12 @@
 This document is the authoritative reference for engineers writing Go code
 in `aethel-core/`. Read it before touching any file in that directory.
 
-The guide covers the three non-obvious aspects of this codebase:
+The guide covers the four non-obvious aspects of this codebase:
 
 1. How blueprints are loaded into Go structs
 2. How SQL migration files are rendered and executed
-3. How named queries from `server-queries.yaml` are bound and called
+3. How named queries from `aethel-core/internal/database/queries/queries.yaml` are bound and called
+4. How the runtime config API and in-memory cache work
 
 Standard Go practices (error wrapping, context propagation, testing) are
 assumed knowledge and are not repeated here.
@@ -24,14 +25,19 @@ aethel-core/
 ├── internal/
 │   ├── blueprint/
 │   │   ├── loader.go          # load + validate YAML into typed structs
-│   │   ├── database_config.go # DatabaseConfig struct (server-database.yaml)
-│   │   └── queries_config.go  # QueriesConfig struct (server-queries.yaml)
+│   │   └── database_config.go # DatabaseConfig struct (server-database.yaml)
+│   ├── config/
+│   │   ├── cache.go           # ConfigCache: per-org in-memory cache, 5-min TTL
+│   │   ├── loader.go          # LoadOrgConfig: queries branding_configs + system_settings
+│   │   └── handler.go         # HTTP handlers for GET /api/v1/config and PATCH endpoints
 │   ├── database/
 │   │   ├── connect.go         # open *sql.DB from DatabaseConfig
 │   │   ├── blueprint_context.go  # T(), E(), Schema template helpers
 │   │   ├── migrator.go        # migration runner
 │   │   ├── query_registry.go  # load + prepare named queries at startup
-│   │   └── migrations/        # 40 SQL template files (up + down)
+│   │   ├── queries/
+│   │   │   └── queries.yaml   # named SQL queries (internal developer file)
+│   │   └── migrations/        # 42 SQL template files (up + down)
 │   ├── rbac/
 │   │   └── middleware.go      # permission enforcement
 │   └── api/
@@ -45,7 +51,7 @@ Two rules that apply everywhere in `internal/`:
 - **No package may import `internal/api`** — the handler layer is a consumer
   of everything else, never a dependency.
 - **No file outside `internal/database/` may construct raw SQL strings** —
-  all SQL lives in the migration files or in `server-queries.yaml`.
+  all SQL lives in the migration files or in `internal/database/queries/queries.yaml`.
 
 ---
 
@@ -53,9 +59,7 @@ Two rules that apply everywhere in `internal/`:
 
 ### 2.1 Go structs
 
-The two YAML files each map to a typed struct in `internal/blueprint/`.
-Use `gopkg.in/yaml.v3` for decoding. Define structs to match the YAML
-exactly; do not invent fields that aren't in the conventions doc.
+The IT-facing blueprint file (`server-database.yaml`) maps to a typed struct in `internal/blueprint/`. The queries file (`internal/database/queries/queries.yaml`) maps to `QueriesConfig`. Use `gopkg.in/yaml.v3` for decoding. Define structs to match the YAML exactly; do not invent fields that aren't in the conventions doc.
 
 ```go
 // internal/blueprint/database_config.go
@@ -663,7 +667,8 @@ func main() {
     // 1. Load blueprints (fail fast on invalid YAML)
     dbCfg, err := blueprint.LoadDatabaseConfig("blueprints/server-database.yaml")
     exitOnError(err)
-    queriesCfg, err := blueprint.LoadQueriesConfig("blueprints/server-queries.yaml")
+    queriesCfg, err := blueprint.LoadQueriesConfig(
+        "internal/database/queries/queries.yaml")
     exitOnError(err)
 
     // 2. Select active environment
@@ -682,12 +687,20 @@ func main() {
         exitOnError(migrator.Up(context.Background()))
     }
 
-    // 5. Build query registry (prepares all named statements)
+    // 5. Seed branding + nav from blueprints (idempotent — skips if already seeded)
+    seeder := config.NewSeeder(db)
+    exitOnError(seeder.SeedBranding(context.Background(), "blueprints/ui-theme.yaml"))
+    exitOnError(seeder.SeedNav(context.Background(), "blueprints/ui-layouts.yaml"))
+
+    // 6. Build query registry (prepares all named statements)
     queries, err := database.BuildQueryRegistry(context.Background(), db, queriesCfg)
     exitOnError(err)
 
-    // 6. Wire HTTP server
-    srv := api.NewServer(db, queries)
+    // 7. Initialize config cache
+    configCache := config.NewConfigCache()
+
+    // 8. Wire HTTP server
+    srv := api.NewServer(db, queries, configCache)
     exitOnError(srv.ListenAndServe(":8080"))
 }
 ```
@@ -696,7 +709,7 @@ func main() {
 
 ## 7. RBAC enforcement
 
-Permissions are defined in `server-queries.yaml` under `required_permission`
+Permissions are defined in `internal/database/queries/queries.yaml` under `required_permission`
 and in `internal/rbac/`. The four roles are `ADMIN`, `RECEPTION`, `USER`,
 `SYS_ADMIN`. Middleware reads the permission from the query's metadata and
 checks it against the authenticated user's role.
@@ -750,7 +763,7 @@ already fully rendered SQL. Do not call `T()` or `E()` in handler code.
 
 The blueprint files configure behaviour — timeouts, pool sizes, schema
 names. They never store secrets. If you need a new secret at runtime, add
-an environment variable and document it in `docs/server-blueprint-conventions.md`
+an environment variable and document it in `docs/guides/server-blueprint-conventions.md`
 under §3.2.
 
 ### Blueprint validation happens at startup, not at request time
@@ -765,7 +778,7 @@ add validation logic that re-reads the blueprint on each HTTP request.
 - Blueprint YAML is malformed or fails validation
 - Required environment is not defined in the blueprint
 - Database connection or ping fails
-- Any named query in `server-queries.yaml` fails to prepare
+- Any named query in `internal/database/queries/queries.yaml` fails to prepare
 
 Use `log.Fatalf` or `os.Exit(1)` for these cases. A server that starts
 with a broken configuration is worse than one that refuses to start.
@@ -775,8 +788,8 @@ with a broken configuration is worse than one that refuses to start.
 ## 9. Adding a new named query
 
 1. Write the SQL and test it directly in `psql`.
-2. Add the query to `blueprints/server-queries.yaml` under the correct
-   group, following the conventions in `docs/server-blueprint-conventions.md`.
+2. Add the query to `aethel-core/internal/database/queries/queries.yaml` under the correct
+   group, following the conventions in `docs/guides/server-blueprint-conventions.md`.
 3. Define the `params` list to match the positional `$1`, `$2` ... order.
 4. Set `required_permission` to an existing permission identifier.
 5. Restart the server — `BuildQueryRegistry` will prepare the statement
@@ -816,13 +829,90 @@ live request.
 
 ---
 
-## 11. Reference
+## 11. Config API and In-Memory Cache
+
+The `internal/config/` package (implemented in Sprint 2) owns the runtime configuration layer.
+
+### Package structure
+
+```
+internal/config/
+├── cache.go    — ConfigCache struct: sync.RWMutex, map[uuid.UUID]*CachedConfig, TTL
+├── loader.go   — LoadOrgConfig(ctx, db, orgID) → OrgConfig
+└── handler.go  — HTTP handlers: GET /api/v1/config*, PATCH /api/v1/admin/config/*
+```
+
+### Go struct for config response
+
+The `OrgConfig` struct mirrors the TypeScript shape expected by `useRuntimeConfig()` in the frontend:
+
+```go
+// internal/config/loader.go
+
+type OrgConfig struct {
+    Branding BrandingConfig `json:"branding"`
+    Nav      []NavGroup     `json:"nav"`
+    Features FeatureFlags   `json:"features"`
+    Org      OrgProfile     `json:"org"`
+}
+
+type BrandingConfig struct {
+    PrimaryColor   string `json:"primaryColor"`
+    NeutralPalette string `json:"neutralPalette"`
+    FontFamily     string `json:"fontFamily"`
+    Wordmark       string `json:"wordmark"`
+    LogoPath       string `json:"logoPath"`
+}
+
+type NavGroup struct {
+    Group      string    `json:"group"`
+    Permission string    `json:"permission,omitempty"`
+    Roles      []string  `json:"roles"`
+    Items      []NavItem `json:"items"`
+}
+
+type NavItem struct {
+    Label  string `json:"label"`
+    Icon   string `json:"icon"`
+    Route  string `json:"route"`
+}
+```
+
+### Cache operations
+
+```go
+// cache.Invalidate is called by every successful PATCH handler
+cache.Invalidate(orgID uuid.UUID)
+
+// cache.Get returns (config, ok) — ok=false means cache miss, must load from DB
+config, ok := cache.Get(orgID)
+
+// cache.Set stores config with TTL
+cache.Set(orgID, config, 5*time.Minute)
+```
+
+### Cache invalidation pattern
+
+PATCH handlers follow this exact sequence:
+
+1. Validate and parse the request body.
+2. Write to PostgreSQL (`branding_configs` or `system_settings`).
+3. On success: `cache.Invalidate(orgID)`.
+4. Return the updated config as the response body (avoids a second DB read by the frontend).
+
+The frontend's `useRuntimeConfig()` composable calls `appConfig.refresh()` on a successful PATCH response to update the Pinia/useState cache immediately.
+
+---
+
+## 12. Reference
 
 | Document | Location |
 |---|---|
 | Database ER diagram | `docs/db-design.mmd` |
-| Blueprint YAML field reference | `docs/server-blueprint-conventions.md` |
-| Migration system design (rationale) | `docs/migration-strategy.md` |
-| IT customisation guide | `docs/it-customization-guide.md` |
-| Blueprint files | `blueprints/server-database.yaml`, `blueprints/server-queries.yaml` |
+| Blueprint YAML field reference | `docs/guides/server-blueprint-conventions.md` |
+| Migration system design (rationale) | `docs/plans/migration-strategy.md` |
+| IT customisation guide | `docs/guides/it-customization-guide.md` |
+| DB blueprint file | `blueprints/server-database.yaml` |
+| Named queries file | `aethel-core/internal/database/queries/queries.yaml` |
 | Migration SQL files | `aethel-core/internal/database/migrations/` |
+| Runtime config flow diagram | `docs/diagrams/runtime-config-flow.mmd` |

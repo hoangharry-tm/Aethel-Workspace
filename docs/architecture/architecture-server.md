@@ -3,7 +3,7 @@
 **Audience:** Go engineers working in `aethel-core/`
 **Status:** Active
 
-Diagram: [docs/diagrams/server-request-flow.mmd](diagrams/server-request-flow.mmd)
+Diagram: [docs/diagrams/server-request-flow.mmd](../diagrams/server-request-flow.mmd)
 
 ---
 
@@ -70,15 +70,9 @@ The following middleware are applied in this exact order. Order is not negotiabl
 
 ## Authentication
 
-**JWT-based.** The server issues signed JWTs on login. No session cookie is used for API clients. Browser clients that need CSRF protection use the double-submit cookie pattern (see `docs/architecture-security.md`).
+**JWT-based.** The server issues signed JWTs on login. No session cookie is used for API clients. Browser clients that need CSRF protection use the double-submit cookie pattern (see `docs/architecture/architecture-security.md`).
 
-**Algorithm choice:** HS256 (shared secret) or RS256 (asymmetric), selected via blueprint:
-
-```yaml
-# server-routes.yaml
-auth:
-  jwt_algorithm: "RS256"   # HS256 | RS256
-```
+**Algorithm choice:** HS256 (shared secret) or RS256 (asymmetric), selected via environment variable `AETHEL_JWT_ALGORITHM` (default: `RS256`).
 
 The key material is always read from environment variables at startup (`AETHEL_JWT_SECRET` for HS256, `AETHEL_JWT_RSA_PRIVATE_KEY` for RS256). It is never in YAML.
 
@@ -105,18 +99,9 @@ Session storage can be swapped to Redis in a future version without changing the
 
 ## Rate Limiting
 
-Rate limiting uses an in-process token bucket. No Redis is required. The implementation is per-IP (for unauthenticated requests) and per-user (for authenticated requests). Each route group has a configurable limit expressed as requests per minute:
+Rate limiting uses an in-process token bucket. No Redis is required. The implementation is per-IP (for unauthenticated requests) and per-user (for authenticated requests). Default limits are hardcoded: 600 RPM globally, 300 RPM for mutation-heavy dispatch endpoints.
 
-```yaml
-# server-routes.yaml
-global_route_defaults:
-  rate_limit_rpm: 600    # 600 rpm = 10 req/s default
-route_groups:
-  dispatch:
-    rate_limit_rpm: 300  # lower limit for mutation-heavy intake endpoints
-```
-
-In-process rate limiting is appropriate for small-scale deployments where a single Go process handles all traffic. For horizontally scaled deployments behind a load balancer, the IT admin should enable rate limiting at the reverse proxy layer (Nginx `limit_req_zone`, Caddy's rate limit plugin) and disable the in-process limiter by setting `rate_limit_rpm: 0` in the blueprint.
+In-process rate limiting is appropriate for small-scale deployments where a single Go process handles all traffic. For horizontally scaled deployments behind a load balancer, the IT admin should enable rate limiting at the reverse proxy layer (Nginx `limit_req_zone`, Caddy's rate limit plugin).
 
 ---
 
@@ -143,13 +128,7 @@ ticker := time.NewTicker(interval)  // interval from blueprint
 go worker.RunEscalationWorker(ctx, ticker, escalationService)
 ```
 
-On each tick, the worker calls `service.EvaluateEscalationRules`, which queries for dispatches that have exceeded their escalation threshold and applies the configured escalation action (reassign, notify, escalate status). The tick interval is blueprint-configurable:
-
-```yaml
-# server-routes.yaml
-worker:
-  escalation_tick_seconds: 60   # evaluate rules every 60 seconds
-```
+On each tick, the worker calls `service.EvaluateEscalationRules`, which queries for dispatches that have exceeded their escalation threshold and applies the configured escalation action (reassign, notify, escalate status). The default tick interval is 60 seconds; this will be configurable via `system_settings` in a future sprint.
 
 The worker respects context cancellation: when the server receives SIGTERM, the context is cancelled, and the worker exits cleanly before the process terminates.
 
@@ -171,6 +150,74 @@ The following is a step-by-step narrative of what happens from the moment a TCP 
 10. The **Handler** function runs. It reads typed values from the request context (user ID, org ID), calls the appropriate service function, and encodes the result as JSON with the correct status code.
 11. The service function calls repository methods (via the domain interface). The repository uses the query registry to execute prepared SQL statements against PostgreSQL, scoped by `organization_id`.
 12. The response is written. The logger middleware (deferred from step 4) fires and records the outcome.
+
+---
+
+## Runtime Configuration Fetch Flow
+
+The Go backend maintains a per-org in-memory config cache to serve branding, navigation, and feature flags to the Nuxt SSR frontend with minimal database load.
+
+### Cache structure
+
+```go
+// internal/config/cache.go
+type ConfigCache struct {
+    mu      sync.RWMutex
+    entries map[uuid.UUID]*CachedConfig
+}
+
+type CachedConfig struct {
+    Config    OrgConfig
+    ExpiresAt time.Time
+}
+```
+
+- Keyed by `organization_id` (UUID).
+- TTL is 5 minutes per entry.
+- `Invalidate(orgID)` deletes the entry; the next request re-fetches from DB.
+
+### Request flow
+
+`GET /api/v1/config` handler:
+
+1. Read `orgID` from the request context (set by TenantResolver middleware).
+2. `cache.Get(orgID)` — cache hit returns immediately without a DB query.
+3. On cache miss: call `loader.LoadOrgConfig(ctx, db, orgID)`, which queries `branding_configs` + `system_settings WHERE key = 'nav_config'` and constructs the response struct.
+4. Store result in cache with `ExpiresAt = now + 5m`.
+5. Return the `OrgConfig` as JSON.
+
+### Nuxt SSR integration
+
+The Nuxt frontend fetches config server-side during SSR:
+
+```ts
+// app/composables/useRuntimeConfig.ts
+const { data: appConfig } = await useAsyncData(
+  'app-config',
+  () => $fetch('/api/v1/config')
+)
+```
+
+Because this runs on the Nuxt server (not in the browser), the config JSON is embedded directly in the initial HTML payload (`__NUXT_DATA__`). The browser client receives config with the first byte of HTML — zero extra round-trips on first load.
+
+Subsequent client-side navigations use the Pinia/useState cache seeded from the SSR data. No browser-to-API config fetch occurs unless an admin triggers a change.
+
+### Admin save and cache invalidation
+
+When an admin saves config via a PATCH endpoint:
+
+1. The Go handler writes the update to PostgreSQL.
+2. On success, it calls `cache.Invalidate(orgID)`.
+3. The response body contains the updated config JSON.
+4. The frontend calls `appConfig.refresh()` from `useRuntimeConfig()` to update local state immediately — no full page reload required.
+
+### Why this is better than 2-way HTTP
+
+**No FOUC (flash of unconfigured content):** Config arrives embedded in the first HTML response. A purely client-side fetch would cause the page to render with default styling before the config loads.
+
+**DB load proportional to config changes, not page views:** A busy organization with 500 concurrent users generates at most one DB config read per 5 minutes per org — not one read per page view.
+
+**No extra network round-trip:** The browser does not need to make a second HTTP request before rendering the page. Latency for first meaningful paint is unaffected by config fetching.
 
 ---
 

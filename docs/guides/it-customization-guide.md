@@ -915,7 +915,7 @@ FATAL: blueprint validation failed: unknown field "connection_timeout" in enviro
 
 **What it means:** You added a field to the YAML that is not in the blueprint schema. When `strict_validation: true`, this is a fatal startup error.
 
-**How to fix:** Remove or rename the field. Refer to `docs/server-blueprint-conventions.md` for the complete list of valid fields. If you believe the field should exist (it is a new feature not yet in the schema), contact the Aethel team — do not set `strict_validation: false` as a workaround in production.
+**How to fix:** Remove or rename the field. Refer to `docs/guides/server-blueprint-conventions.md` for the complete list of valid fields. If you believe the field should exist (it is a new feature not yet in the schema), contact the Aethel team — do not set `strict_validation: false` as a workaround in production.
 
 ---
 

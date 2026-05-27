@@ -1,4 +1,3 @@
----
 # =============================================================================
 # Aethel Workspace — Development Docker Compose
 # Usage: docker compose up
@@ -27,7 +26,11 @@ services:
       # Uncomment to seed a brand-new dev database from raw SQL:
       # - ./aethel-core/internal/database/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aethel} -d ${POSTGRES_DB:-aethel_dev}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-aethel} -d ${POSTGRES_DB:-aethel_dev}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
