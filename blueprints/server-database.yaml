@@ -43,8 +43,8 @@ environments:
     connection:
       host: "127.0.0.1"
       port: 5432
-      database: "aethel_workspace_dev"
-      user: "aethel_dev_user"
+      database: "aethel_dev"
+      user: "aethel"
       # Password: set AETHEL_DB_PASSWORD=<your_local_password>
       ssl_mode: "disable"
       # Set to env var name (e.g. "AETHEL_DB_DSN") to use a full DSN.

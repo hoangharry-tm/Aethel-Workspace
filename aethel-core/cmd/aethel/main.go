@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
+	"github.com/joho/godotenv"
 
 	"aethel-core/internal/api"
 	"aethel-core/internal/api/handlers"
@@ -18,6 +19,7 @@ import (
 	"aethel-core/internal/database"
 	"aethel-core/internal/domain"
 	"aethel-core/internal/service"
+	
 )
 
 var rootCmd = &cobra.Command{
@@ -69,6 +71,8 @@ func init() {
 }
 
 func main() {
+	_ = godotenv.Load()
+
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
