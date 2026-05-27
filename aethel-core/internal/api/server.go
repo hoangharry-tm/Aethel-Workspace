@@ -1,0 +1,299 @@
+package api
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+
+	"aethel-core/internal/api/handlers"
+	"aethel-core/internal/config"
+	"aethel-core/internal/database"
+	"aethel-core/internal/domain"
+	"aethel-core/internal/rbac"
+	"aethel-core/internal/transport"
+)
+
+func init() {
+	log.Logger = zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339}).
+		With().Timestamp().Logger()
+}
+
+// Server holds all wired dependencies and the HTTP mux.
+type Server struct {
+	db          *sql.DB
+	queries     *database.QueryRegistry
+	configCache *config.ConfigCache
+	sse         *transport.SSEBroker
+	router      *chi.Mux
+}
+
+func NewServer(
+	db *sql.DB,
+	queries *database.QueryRegistry,
+	configCache *config.ConfigCache,
+	authSvc *handlers.AuthHandler,
+	dispatchSvc *handlers.DispatchHandler,
+	workflowSvc *handlers.WorkflowHandler,
+	auditRepo domain.AuditRepository,
+	adminDeps handlers.AdminDeps,
+) *Server {
+	s := &Server{
+		db:          db,
+		queries:     queries,
+		configCache: configCache,
+		sse:         transport.NewSSEBroker(),
+	}
+	s.router = s.buildRouter(authSvc, dispatchSvc, workflowSvc, auditRepo, adminDeps)
+	return s
+}
+
+func (s *Server) ListenAndServe(addr string) error {
+	srv := &http.Server{
+		Addr:         addr,
+		Handler:      s.router,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+	log.Info().Str("addr", addr).Msg("HTTP server listening")
+	return srv.ListenAndServe()
+}
+
+func (s *Server) Handler() http.Handler {
+	return s.router
+}
+
+func (s *Server) buildRouter(
+	authSvc *handlers.AuthHandler,
+	dispatchSvc *handlers.DispatchHandler,
+	workflowSvc *handlers.WorkflowHandler,
+	auditRepo domain.AuditRepository,
+	adminDeps handlers.AdminDeps,
+) *chi.Mux {
+	r := chi.NewRouter()
+
+	// ── Global middleware stack ───────────────────────────────────────────────
+	r.Use(middleware.RequestID)
+	r.Use(zerologMiddleware)
+	r.Use(middleware.Recoverer)
+	r.Use(corsMiddleware)
+	r.Use(s.jwtMiddleware)
+	r.Use(tenantMiddleware)
+
+	// ── Health probes ─────────────────────────────────────────────────────────
+	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, "ok")
+	})
+	r.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		if err := s.db.PingContext(r.Context()); err != nil {
+			http.Error(w, "db not ready", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, "ready")
+	})
+
+	// ── API v1 ────────────────────────────────────────────────────────────────
+	r.Route("/api/v1", func(r chi.Router) {
+		// Config endpoints.
+		cfgHandler := config.NewHandler(s.db, s.configCache)
+		r.With(rbac.Require("dispatch.view")).Get("/config", cfgHandler.GetConfig)
+		r.With(rbac.Require("dispatch.view")).Get("/config/branding", cfgHandler.GetBranding)
+		r.With(rbac.Require("dispatch.view")).Get("/config/nav", cfgHandler.GetNav)
+		r.With(rbac.Require("dispatch.view")).Get("/config/features", cfgHandler.GetFeatures)
+		r.With(rbac.Require("admin.access")).Patch("/admin/config/branding", cfgHandler.PatchBranding)
+		r.With(rbac.Require("admin.access")).Patch("/admin/config/nav", cfgHandler.PatchNav)
+		r.With(rbac.Require("admin.access")).Patch("/admin/config/features", cfgHandler.PatchFeatures)
+		r.With(rbac.Require("admin.access")).Patch("/admin/config/org", cfgHandler.PatchOrg)
+
+		// Auth endpoints (public — no JWT required).
+		r.With(rbac.Require("public")).Post("/auth/login", authSvc.Login)
+		r.With(rbac.Require("public")).Post("/auth/refresh", authSvc.Refresh)
+		r.With(rbac.Require("dispatch.view")).Post("/auth/logout", authSvc.Logout)
+		r.With(rbac.Require("public")).Post("/auth/password-reset/request", authSvc.RequestPasswordReset)
+		r.With(rbac.Require("public")).Post("/auth/password-reset/confirm", authSvc.ConfirmPasswordReset)
+
+		// Dispatch endpoints.
+		r.With(rbac.Require("dispatch.view")).Get("/dispatches", dispatchSvc.ListInbox)
+		r.With(rbac.Require("dispatch.create")).Post("/dispatches", dispatchSvc.Create)
+		r.With(rbac.Require("dispatch.view")).Get("/dispatches/outbound", dispatchSvc.ListOutbound)
+		r.With(rbac.Require("dispatch.create")).Post("/dispatches/outbound", dispatchSvc.CreateOutbound)
+		r.With(rbac.Require("workflow.view")).Get("/my-dispatches", dispatchSvc.ListMyDispatches)
+		r.With(rbac.Require("dispatch.view")).Get("/search", dispatchSvc.Search)
+
+		r.Route("/dispatches/{id}", func(r chi.Router) {
+			r.With(rbac.Require("dispatch.view")).Get("/", dispatchSvc.GetByID)
+			r.With(rbac.Require("dispatch.create")).Patch("/status", dispatchSvc.UpdateStatus)
+			r.With(rbac.Require("dispatch.assign")).Post("/assign", dispatchSvc.Assign)
+			r.With(rbac.Require("dispatch.deliver")).Post("/acknowledge", dispatchSvc.Acknowledge)
+			r.With(rbac.Require("dispatch.view")).Get("/attachments", dispatchSvc.ListAttachments)
+			r.With(rbac.Require("dispatch.create")).Post("/attachments", dispatchSvc.UploadAttachment)
+			r.With(rbac.Require("dispatch.assign")).Delete("/attachments/{att_id}", dispatchSvc.DeleteAttachment)
+			// Workflow routes nested under the same dispatch ID.
+			r.With(rbac.Require("workflow.view")).Get("/minute-sheet", workflowSvc.GetMinuteSheet)
+			r.With(rbac.Require("workflow.view")).Get("/green-notes", workflowSvc.ListGreenNotes)
+			r.With(rbac.Require("workflow.approve")).Post("/green-notes", workflowSvc.AppendGreenNote)
+			r.With(rbac.Require("workflow.approve")).Post("/minute-sheet/approve", workflowSvc.ApproveMinuteSheet)
+		})
+
+		// Governance endpoints.
+		gh := handlers.NewGovernanceHandler(auditRepo)
+		r.With(rbac.Require("admin.audit")).Get("/audit-log", gh.QueryAuditLog)
+		r.With(rbac.Require("admin.audit")).Get("/audit-log/verify", gh.VerifyChain)
+
+		// Admin endpoints.
+		ah := handlers.NewAdminHandler(
+			adminDeps.Users,
+			adminDeps.DocTypes,
+			adminDeps.RoutingRules,
+			adminDeps.EscRules,
+			auditRepo,
+		)
+		r.Route("/admin", func(r chi.Router) {
+			r.Use(rbac.Require("admin.access"))
+			r.Get("/users", ah.ListUsers)
+			r.Post("/users", ah.CreateUser)
+			r.Get("/users/{id}", ah.GetUser)
+			r.Patch("/users/{id}", ah.UpdateUser)
+			r.Delete("/users/{id}", ah.DeactivateUser)
+
+			r.Get("/document-types", ah.ListDocumentTypes)
+			r.Post("/document-types", ah.CreateDocumentType)
+			r.Patch("/document-types/{id}", ah.UpdateDocumentType)
+			r.Delete("/document-types/{id}", ah.DeleteDocumentType)
+
+			r.Get("/routing-rules", ah.ListRoutingRules)
+			r.Post("/routing-rules", ah.CreateRoutingRule)
+			r.Put("/routing-rules/{id}", ah.UpdateRoutingRule)
+			r.Delete("/routing-rules/{id}", ah.DeleteRoutingRule)
+
+			r.Get("/escalation-rules", ah.ListEscalationRules)
+			r.Post("/escalation-rules", ah.CreateEscalationRule)
+			r.Put("/escalation-rules/{id}", ah.UpdateEscalationRule)
+
+			r.Get("/reports", ah.GetReports)
+			r.Get("/settings", ah.GetSettings)
+			r.Patch("/settings", ah.UpdateSettings)
+		})
+
+		// Notifications (SSE) — Sprint 5.
+		r.With(rbac.Require("dispatch.view")).Get("/notifications/stream", func(w http.ResponseWriter, r *http.Request) {
+			userIDStr, _ := rbac.UserIDFromCtx(r.Context())
+			s.sse.ServeHTTP(w, r, userIDStr)
+		})
+		r.With(rbac.Require("dispatch.view")).Get("/notifications", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprintln(w, "[]")
+		})
+		r.With(rbac.Require("dispatch.view")).Patch("/notifications/{id}/read", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNoContent)
+		})
+	})
+
+	return r
+}
+
+// ── Middleware ────────────────────────────────────────────────────────────────
+
+func (s *Server) jwtMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+		secret := os.Getenv("AETHEL_JWT_SECRET")
+		if secret == "" {
+			secret = "dev-secret-change-in-production"
+		}
+
+		token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
+			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method")
+			}
+			return []byte(secret), nil
+		})
+		if err != nil || !token.Valid {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		userID, _ := claims["sub"].(string)
+		orgID, _ := claims["org"].(string)
+		roleStr, _ := claims["role"].(string)
+		role := domain.UserRole(roleStr)
+
+		ctx := rbac.SetUserContext(r.Context(), userID, orgID, role)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// tenantMiddleware injects the org UUID from rbac context into the config ctxKey.
+func tenantMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		orgIDStr, ok := rbac.OrgIDFromCtx(r.Context())
+		if ok && orgIDStr != "" {
+			if orgID, err := uuid.Parse(orgIDStr); err == nil {
+				ctx := context.WithValue(r.Context(), config.OrgIDContextKey, orgID)
+				r = r.WithContext(ctx)
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Request-ID")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func zerologMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+		next.ServeHTTP(ww, r)
+		log.Info().
+			Str("method", r.Method).
+			Str("path", r.URL.Path).
+			Int("status", ww.Status()).
+			Dur("latency", time.Since(start)).
+			Str("request_id", middleware.GetReqID(r.Context())).
+			Msg("request")
+	})
+}
+
+// errorJSON writes a JSON error response (used by middleware).
+func errorJSON(w http.ResponseWriter, msg string, status int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}

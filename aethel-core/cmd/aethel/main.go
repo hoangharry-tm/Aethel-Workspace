@@ -1,0 +1,386 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"os"
+	"strconv"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/spf13/cobra"
+
+	"aethel-core/internal/api"
+	"aethel-core/internal/api/handlers"
+	"aethel-core/internal/blueprint"
+	"aethel-core/internal/config"
+	"aethel-core/internal/database"
+	"aethel-core/internal/domain"
+	"aethel-core/internal/service"
+)
+
+var rootCmd = &cobra.Command{
+	Use:   "aethel",
+	Short: "Aethel Workspace backend server",
+}
+
+var serveCmd = &cobra.Command{
+	Use:   "serve",
+	Short: "Start the HTTP server",
+	RunE:  runServe,
+}
+
+var migrateCmd = &cobra.Command{
+	Use:   "migrate",
+	Short: "Database migration commands",
+}
+
+var migrateUpCmd = &cobra.Command{
+	Use:   "up",
+	Short: "Apply all pending migrations",
+	RunE:  runMigrateUp,
+}
+
+var migrateDownCmd = &cobra.Command{
+	Use:   "down",
+	Short: "Roll back migrations",
+	RunE:  runMigrateDown,
+}
+
+var migrateStatusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Show migration status",
+	RunE:  runMigrateStatus,
+}
+
+var migrateValidateCmd = &cobra.Command{
+	Use:   "validate",
+	Short: "Validate migration template files",
+	RunE:  runMigrateValidate,
+}
+
+var migrateSteps int
+
+func init() {
+	migrateDownCmd.Flags().IntVar(&migrateSteps, "steps", 1, "number of migrations to roll back")
+	migrateCmd.AddCommand(migrateUpCmd, migrateDownCmd, migrateStatusCmd, migrateValidateCmd)
+	rootCmd.AddCommand(serveCmd, migrateCmd)
+}
+
+func main() {
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(1)
+	}
+}
+
+// ── serve ─────────────────────────────────────────────────────────────────────
+
+func runServe(cmd *cobra.Command, args []string) error {
+	ctx := context.Background()
+
+	// 1. Load blueprints.
+	dbCfg, queriesCfg, envCfg, err := loadBlueprints()
+	if err != nil {
+		return err
+	}
+
+	// 2. Open database.
+	db, err := database.Open(envCfg)
+	if err != nil {
+		return fmt.Errorf("connect to database: %w", err)
+	}
+	defer db.Close()
+	slog.Info("database connected")
+
+	// 3. Auto-run migrations if configured.
+	if envCfg.Migrations.AutoRunOnStartup {
+		m := database.NewMigrator(db, dbCfg, envCfg)
+		if err := m.Up(ctx); err != nil {
+			return fmt.Errorf("run migrations: %w", err)
+		}
+	}
+
+	// 4. Build query registry.
+	queries, err := database.BuildQueryRegistry(ctx, db, queriesCfg)
+	if err != nil {
+		return fmt.Errorf("build query registry: %w", err)
+	}
+	slog.Info("query registry built")
+
+	// 5. Initialize config cache.
+	configCache := config.NewConfigCache()
+
+	// 6. Build stub repositories (replaced by real DB impls in Sprint 2–4).
+	var (
+		userRepo    domain.UserRepository    = &noopUserRepo{}
+		sessionRepo domain.SessionRepository = &noopSessionRepo{}
+		pwResetRepo domain.PasswordResetRepository = &noopPWResetRepo{}
+		auditRepo   domain.AuditRepository   = &noopAuditRepo{}
+		dispatchRepo domain.DispatchRepository = &noopDispatchRepo{}
+		eventRepo   domain.DispatchEventRepository = &noopEventRepo{}
+		routingRepo domain.RoutingRuleRepository  = &noopRoutingRepo{}
+		msRepo      domain.MinuteSheetRepository   = &noopMSRepo{}
+		gnRepo      domain.GreenNoteRepository     = &noopGNRepo{}
+		docTypeRepo domain.DocumentTypeRepository  = &noopDocTypeRepo{}
+		escRepo     domain.EscalationRuleRepository = &noopEscRepo{}
+	)
+
+	// 7. Wire services.
+	authSvc := service.NewAuthService(userRepo, sessionRepo, pwResetRepo, auditRepo)
+	dispatchSvc := service.NewDispatchService(dispatchRepo, eventRepo, routingRepo, msRepo, auditRepo)
+	workflowSvc := service.NewWorkflowService(msRepo, gnRepo, auditRepo)
+
+	// 8. Wire handlers.
+	authHandler := handlers.NewAuthHandler(authSvc)
+	dispatchHandler := handlers.NewDispatchHandler(dispatchSvc)
+	workflowHandler := handlers.NewWorkflowHandler(workflowSvc)
+
+	adminDeps := handlers.AdminDeps{
+		Users:        userRepo,
+		DocTypes:     docTypeRepo,
+		RoutingRules: routingRepo,
+		EscRules:     escRepo,
+	}
+
+	// 9. Start HTTP server.
+	addr := envAddr()
+	srv := api.NewServer(db, queries, configCache, authHandler, dispatchHandler, workflowHandler, auditRepo, adminDeps)
+	slog.Info("starting server", "addr", addr)
+	return srv.ListenAndServe(addr)
+}
+
+// ── migrate commands ──────────────────────────────────────────────────────────
+
+func runMigrateUp(_ *cobra.Command, _ []string) error {
+	dbCfg, _, envCfg, err := loadBlueprints()
+	if err != nil {
+		return err
+	}
+	db, err := database.Open(envCfg)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	return database.NewMigrator(db, dbCfg, envCfg).Up(context.Background())
+}
+
+func runMigrateDown(_ *cobra.Command, _ []string) error {
+	dbCfg, _, envCfg, err := loadBlueprints()
+	if err != nil {
+		return err
+	}
+	db, err := database.Open(envCfg)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	return database.NewMigrator(db, dbCfg, envCfg).Down(context.Background(), migrateSteps)
+}
+
+func runMigrateStatus(_ *cobra.Command, _ []string) error {
+	dbCfg, _, envCfg, err := loadBlueprints()
+	if err != nil {
+		return err
+	}
+	db, err := database.Open(envCfg)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	return database.NewMigrator(db, dbCfg, envCfg).Status(context.Background())
+}
+
+func runMigrateValidate(_ *cobra.Command, _ []string) error {
+	dbCfg, _, envCfg, err := loadBlueprints()
+	if err != nil {
+		return err
+	}
+	// Validate does not need a live DB — use a stub.
+	db, _ := database.Open(envCfg)
+	if db != nil {
+		defer db.Close()
+	}
+	// Create a minimal DB-less migrator just for template validation.
+	m := database.NewMigrator(nil, dbCfg, envCfg)
+	return m.Validate(context.Background())
+}
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+func loadBlueprints() (*blueprint.DatabaseConfig, *blueprint.QueriesConfig, blueprint.EnvironmentConfig, error) {
+	dbCfg, err := blueprint.LoadDatabaseConfig("blueprints/server-database.yaml")
+	if err != nil {
+		return nil, nil, blueprint.EnvironmentConfig{}, fmt.Errorf("load database blueprint: %w", err)
+	}
+
+	queriesCfg, err := blueprint.LoadQueriesConfig("internal/database/queries/queries.yaml")
+	if err != nil {
+		return nil, nil, blueprint.EnvironmentConfig{}, fmt.Errorf("load queries blueprint: %w", err)
+	}
+
+	env := os.Getenv("AETHEL_ENV")
+	if env == "" {
+		env = "development"
+	}
+
+	envCfg, ok := dbCfg.Environments[env]
+	if !ok {
+		return nil, nil, blueprint.EnvironmentConfig{},
+			fmt.Errorf("blueprint: environment %q not defined in server-database.yaml", env)
+	}
+
+	return dbCfg, queriesCfg, envCfg, nil
+}
+
+func envAddr() string {
+	port := os.Getenv("AETHEL_PORT")
+	if port == "" {
+		port = "8080"
+	}
+	if _, err := strconv.Atoi(port); err != nil {
+		slog.Warn("invalid AETHEL_PORT, using 8080")
+		port = "8080"
+	}
+	return ":" + port
+}
+
+// ── stub repositories (replaced in Sprint 2–4) ───────────────────────────────
+
+type noopUserRepo struct{}
+
+func (r *noopUserRepo) GetByID(_ context.Context, _, _ uuid.UUID) (*domain.User, error) {
+	return nil, domain.ErrNotFound
+}
+func (r *noopUserRepo) GetByEmail(_ context.Context, _ uuid.UUID, _ string) (*domain.User, error) {
+	return nil, domain.ErrNotFound
+}
+func (r *noopUserRepo) List(_ context.Context, _ uuid.UUID, _ domain.Page) ([]domain.User, error) {
+	return nil, nil
+}
+func (r *noopUserRepo) Create(_ context.Context, _ *domain.User) error             { return nil }
+func (r *noopUserRepo) Update(_ context.Context, _ *domain.User) error             { return nil }
+func (r *noopUserRepo) UpdatePasswordHash(_ context.Context, _ uuid.UUID, _ string) error { return nil }
+func (r *noopUserRepo) IncrementFailedLogins(_ context.Context, _ uuid.UUID) error { return nil }
+func (r *noopUserRepo) ResetFailedLogins(_ context.Context, _ uuid.UUID) error     { return nil }
+func (r *noopUserRepo) LockUntil(_ context.Context, _ uuid.UUID, _ time.Time) error { return nil }
+func (r *noopUserRepo) SetLastLogin(_ context.Context, _ uuid.UUID) error           { return nil }
+
+type noopSessionRepo struct{}
+
+func (r *noopSessionRepo) Create(_ context.Context, _ *domain.Session) error { return nil }
+func (r *noopSessionRepo) GetByTokenHash(_ context.Context, _ string) (*domain.Session, error) {
+	return nil, domain.ErrNotFound
+}
+func (r *noopSessionRepo) DeleteByID(_ context.Context, _ uuid.UUID) error     { return nil }
+func (r *noopSessionRepo) DeleteByUserID(_ context.Context, _ uuid.UUID) error { return nil }
+
+type noopPWResetRepo struct{}
+
+func (r *noopPWResetRepo) Create(_ context.Context, _ *domain.PasswordResetToken) error { return nil }
+func (r *noopPWResetRepo) GetByTokenHash(_ context.Context, _ string) (*domain.PasswordResetToken, error) {
+	return nil, domain.ErrNotFound
+}
+func (r *noopPWResetRepo) MarkUsed(_ context.Context, _ uuid.UUID) error { return nil }
+
+type noopAuditRepo struct{}
+
+func (r *noopAuditRepo) Write(_ context.Context, _ *domain.AuditEntry) error { return nil }
+func (r *noopAuditRepo) Query(_ context.Context, _ uuid.UUID, _, _ time.Time, _ domain.Page) ([]domain.AuditEntry, error) {
+	return nil, nil
+}
+func (r *noopAuditRepo) VerifyChain(_ context.Context, _ uuid.UUID, _, _ time.Time) (*domain.ChainVerificationResult, error) {
+	return &domain.ChainVerificationResult{Valid: true}, nil
+}
+
+type noopDispatchRepo struct{}
+
+func (r *noopDispatchRepo) GetByID(_ context.Context, _, _ uuid.UUID) (*domain.Dispatch, error) {
+	return nil, domain.ErrNotFound
+}
+func (r *noopDispatchRepo) GetByTrackingNumber(_ context.Context, _ uuid.UUID, _ string) (*domain.Dispatch, error) {
+	return nil, domain.ErrNotFound
+}
+func (r *noopDispatchRepo) ListInbox(_ context.Context, _, _ uuid.UUID, _ domain.Page) ([]domain.Dispatch, error) {
+	return nil, nil
+}
+func (r *noopDispatchRepo) ListOutbound(_ context.Context, _ uuid.UUID, _ domain.Page) ([]domain.Dispatch, error) {
+	return nil, nil
+}
+func (r *noopDispatchRepo) ListByUser(_ context.Context, _, _ uuid.UUID, _ domain.Page) ([]domain.Dispatch, error) {
+	return nil, nil
+}
+func (r *noopDispatchRepo) Create(_ context.Context, _ *domain.Dispatch) error { return nil }
+func (r *noopDispatchRepo) UpdateStatus(_ context.Context, _, _ uuid.UUID, _ domain.DispatchStatus) error {
+	return nil
+}
+func (r *noopDispatchRepo) Assign(_ context.Context, _, _ uuid.UUID, _, _ *uuid.UUID) error {
+	return nil
+}
+func (r *noopDispatchRepo) Acknowledge(_ context.Context, _, _ uuid.UUID, _ uuid.UUID) error {
+	return nil
+}
+func (r *noopDispatchRepo) Escalate(_ context.Context, _, _ uuid.UUID) error { return nil }
+
+type noopEventRepo struct{}
+
+func (r *noopEventRepo) Create(_ context.Context, _ *domain.DispatchEvent) error { return nil }
+func (r *noopEventRepo) ListByDispatch(_ context.Context, _, _ uuid.UUID) ([]domain.DispatchEvent, error) {
+	return nil, nil
+}
+
+type noopRoutingRepo struct{}
+
+func (r *noopRoutingRepo) List(_ context.Context, _ uuid.UUID) ([]domain.RoutingRule, error) {
+	return nil, nil
+}
+func (r *noopRoutingRepo) GetByID(_ context.Context, _, _ uuid.UUID) (*domain.RoutingRule, error) {
+	return nil, domain.ErrNotFound
+}
+func (r *noopRoutingRepo) Create(_ context.Context, _ *domain.RoutingRule) error { return nil }
+func (r *noopRoutingRepo) Update(_ context.Context, _ *domain.RoutingRule) error { return nil }
+func (r *noopRoutingRepo) Delete(_ context.Context, _, _ uuid.UUID) error      { return nil }
+
+type noopMSRepo struct{}
+
+func (r *noopMSRepo) GetByDispatchID(_ context.Context, _, _ uuid.UUID) (*domain.MinuteSheet, error) {
+	return nil, domain.ErrNotFound
+}
+func (r *noopMSRepo) GetByID(_ context.Context, _, _ uuid.UUID) (*domain.MinuteSheet, error) {
+	return nil, domain.ErrNotFound
+}
+func (r *noopMSRepo) Create(_ context.Context, _ *domain.MinuteSheet) error { return nil }
+func (r *noopMSRepo) Approve(_ context.Context, _, _ uuid.UUID, _ uuid.UUID) error { return nil }
+
+type noopGNRepo struct{}
+
+func (r *noopGNRepo) Create(_ context.Context, _ *domain.GreenNote) error { return nil }
+func (r *noopGNRepo) ListByMinuteSheet(_ context.Context, _, _ uuid.UUID) ([]domain.GreenNote, error) {
+	return nil, nil
+}
+func (r *noopGNRepo) GetLastByMinuteSheet(_ context.Context, _, _ uuid.UUID) (*domain.GreenNote, error) {
+	return nil, domain.ErrNotFound
+}
+
+type noopDocTypeRepo struct{}
+
+func (r *noopDocTypeRepo) List(_ context.Context, _ uuid.UUID) ([]domain.DocumentType, error) {
+	return nil, nil
+}
+func (r *noopDocTypeRepo) GetByID(_ context.Context, _, _ uuid.UUID) (*domain.DocumentType, error) {
+	return nil, domain.ErrNotFound
+}
+func (r *noopDocTypeRepo) Create(_ context.Context, _ *domain.DocumentType) error { return nil }
+func (r *noopDocTypeRepo) Update(_ context.Context, _ *domain.DocumentType) error { return nil }
+func (r *noopDocTypeRepo) Delete(_ context.Context, _, _ uuid.UUID) error       { return nil }
+
+type noopEscRepo struct{}
+
+func (r *noopEscRepo) List(_ context.Context, _ uuid.UUID) ([]domain.EscalationRule, error) {
+	return nil, nil
+}
+func (r *noopEscRepo) GetByID(_ context.Context, _, _ uuid.UUID) (*domain.EscalationRule, error) {
+	return nil, domain.ErrNotFound
+}
+func (r *noopEscRepo) Create(_ context.Context, _ *domain.EscalationRule) error { return nil }
+func (r *noopEscRepo) Update(_ context.Context, _ *domain.EscalationRule) error { return nil }
