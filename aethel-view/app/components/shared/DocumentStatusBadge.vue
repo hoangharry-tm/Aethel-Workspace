@@ -5,7 +5,7 @@ interface Props {
 
 const props = defineProps<Props>()
 
-type BadgeColor = 'neutral' | 'primary' | 'info' | 'warning' | 'success' | 'error' | 'violet'
+type BadgeColor = 'neutral' | 'primary' | 'secondary' | 'info' | 'warning' | 'success' | 'error'
 
 const statusConfig: Record<string, { color: BadgeColor, icon: string, label: string }> = {
   PENDING_ASSIGNMENT: { color: 'neutral', icon: 'i-lucide-clock', label: 'Pending Assignment' },
@@ -14,7 +14,7 @@ const statusConfig: Record<string, { color: BadgeColor, icon: string, label: str
   ATTEMPTED_DELIVERY: { color: 'warning', icon: 'i-lucide-alert-circle', label: 'Attempted Delivery' },
   DELIVERED: { color: 'success', icon: 'i-lucide-check-circle', label: 'Delivered' },
   ESCALATED: { color: 'error', icon: 'i-lucide-bell-ring', label: 'Escalated' },
-  DISPATCHED: { color: 'violet', icon: 'i-lucide-send', label: 'Dispatched' },
+  DISPATCHED: { color: 'secondary', icon: 'i-lucide-send', label: 'Dispatched' },
 }
 
 const config = computed<{ color: BadgeColor, icon: string, label: string }>(() => {

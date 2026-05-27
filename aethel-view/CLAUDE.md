@@ -57,3 +57,38 @@ Step 4: Update nuxt.config.ts            ✓ only after confirmation
 ---
 After restart, conversation history is preserved. User can send "continue" to resume.
 <!-- /NUXT-DEVTOOLS:CRITICAL-FILES -->
+
+## Runtime Configuration
+
+Added in Phase 1.5 (2026-05-27). The platform pivoted from compile-time YAML injection to runtime-configurable defaults managed through the admin UI.
+
+### Composable
+
+**`app/composables/useRuntimeConfig.ts`** — `useAppRuntimeConfig()`
+- Uses `useState<AppRuntimeConfig>('app-runtime-config', ...)` for SSR-safe shared state
+- Exports: `config`, `isLoading`, `refresh()`, `updateBranding(partial)`, `updateOrg(partial)`, `updateFeatures(partial)`, `updateNav(groups)`
+- Shape matches the planned `GET /api/v1/config` API response exactly
+- Mock defaults: primaryColor `#4f46e5`, neutralPalette `slate`, fontFamily `Inter`, org name `Aethel Demo Org`, all features false
+
+Exported types: `AppRuntimeConfig`, `NavGroup`, `NavItem`
+
+### Block Components (`app/components/blocks/`)
+
+Self-contained cards placeable on custom admin pages:
+
+| Component | Props |
+|---|---|
+| `BlockStatCard.vue` | `title`, `value`, `icon`, `trend?`, `trendValue?` |
+| `BlockDataTable.vue` | `title`, `columns`, `rows`, `emptyLabel?` |
+| `BlockFormBuilder.vue` | `title`, `fields` (id, label, type, options?, required?) |
+| `BlockTimeline.vue` | `title`, `events` (label, note?, timestamp, icon, color) |
+| `BlockRichText.vue` | `title?`, `content`, `editable?` |
+| `BlockQuickActions.vue` | `title?`, `actions` (label, icon, to?, color?) |
+
+### Admin Pages Added/Rebuilt
+
+| Route | File | Status |
+|---|---|---|
+| `/admin/branding` | `app/pages/admin/branding.vue` | Rebuilt — live color picker, font selector, logo upload, live preview panel |
+| `/admin/settings` | `app/pages/admin/settings.vue` | Rebuilt — org profile, feature toggles (USwitch), DB aliases read-only |
+| `/admin/navigation` | `app/pages/admin/navigation.vue` | New — nav tree editor with reorder, visibility, label rename, add item modal |

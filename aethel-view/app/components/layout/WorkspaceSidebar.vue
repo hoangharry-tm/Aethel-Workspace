@@ -1,25 +1,15 @@
 <script setup lang="ts">
 import { useMockData } from '~/composables/useMockData'
 import { useSidebarDrawer } from '~/composables/useSidebarDrawer'
+import { useAppRuntimeConfig } from '~/composables/useRuntimeConfig'
+import type { NavGroup } from '~/composables/useRuntimeConfig'
 
 const { currentUser } = useMockData()
 const { isOpen: isDrawerOpen, close: closeDrawer } = useSidebarDrawer()
+const { config } = useAppRuntimeConfig()
 
 const isCollapsed = ref(false)
 const route = useRoute()
-
-interface NavItem {
-  label: string
-  icon: string
-  to: string
-  badge?: number | null
-}
-
-interface NavGroup {
-  label: string
-  roles: string[]
-  items: NavItem[]
-}
 
 const { documents } = useMockData()
 
@@ -27,7 +17,8 @@ const pendingCount = computed(() =>
   documents.filter(d => d.status === 'PENDING_ASSIGNMENT' && d.isInbound).length,
 )
 
-const navGroups = computed<NavGroup[]>(() => [
+// Hardcoded fallback nav — used if runtime config nav is empty
+const hardcodedNavGroups = computed<NavGroup[]>(() => [
   {
     label: 'Reception',
     roles: ['RECEPTION', 'ADMIN'],
@@ -58,9 +49,15 @@ const navGroups = computed<NavGroup[]>(() => [
       { label: 'Reports', icon: 'i-lucide-bar-chart-2', to: '/admin/reports', badge: null },
       { label: 'Settings', icon: 'i-lucide-settings', to: '/admin/settings', badge: null },
       { label: 'Branding', icon: 'i-lucide-palette', to: '/admin/branding', badge: null },
+      { label: 'Navigation', icon: 'i-lucide-layout-list', to: '/admin/navigation', badge: null },
     ],
   },
 ])
+
+// Use runtime config nav when available, fall back to hardcoded
+const navGroups = computed<NavGroup[]>(() =>
+  config.value.nav.length > 0 ? config.value.nav : hardcodedNavGroups.value,
+)
 
 const visibleGroups = computed(() =>
   navGroups.value.filter(g => g.roles.includes(currentUser.value.role)),
