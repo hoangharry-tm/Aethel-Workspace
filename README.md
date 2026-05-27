@@ -41,6 +41,7 @@ The system follows a **runtime-configurable** architecture: two IT-facing YAML b
 | pnpm | 9+ |
 | Docker + Docker Compose | v2+ |
 | PostgreSQL | 16+ (or use Docker) |
+| Air (Go hot reload) | latest |
 | `make` | any |
 
 ---
@@ -77,7 +78,7 @@ make help               # Print all available make targets
 ```bash
 make dev                # Start all services via Docker Compose (postgres + backend + frontend)
 make dev-fe             # Start only the Nuxt dev server (hot reload, no Docker)
-make dev-be             # Start only the Go backend (requires postgres running separately)
+make dev-be             # Start only the Go backend with Air hot reload (requires postgres running separately)
 make dev-db             # Start only the postgres container
 make dev-down           # Stop and remove all dev containers (volumes preserved)
 make dev-reset          # Full reset — stop, delete volumes, start fresh database
