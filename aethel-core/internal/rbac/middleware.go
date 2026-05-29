@@ -10,42 +10,42 @@ import (
 type ctxKey string
 
 const (
-	ctxUserID  ctxKey = "userID"
-	ctxOrgID   ctxKey = "orgID"
+	ctxUserID   ctxKey = "userID"
+	ctxOrgID    ctxKey = "orgID"
 	ctxUserRole ctxKey = "userRole"
 )
 
 // rolePermissions maps roles to the set of permissions they hold.
 var rolePermissions = map[domain.UserRole]map[string]bool{
 	domain.RoleSysAdmin: {
-		"dispatch.view":   true,
-		"dispatch.create": true,
-		"dispatch.assign": true,
+		"dispatch.view":    true,
+		"dispatch.create":  true,
+		"dispatch.assign":  true,
 		"dispatch.deliver": true,
-		"workflow.view":   true,
+		"workflow.view":    true,
 		"workflow.approve": true,
-		"admin.access":    true,
-		"admin.audit":     true,
+		"admin.access":     true,
+		"admin.audit":      true,
 	},
 	domain.RoleAdmin: {
-		"dispatch.view":   true,
-		"dispatch.create": true,
-		"dispatch.assign": true,
+		"dispatch.view":    true,
+		"dispatch.create":  true,
+		"dispatch.assign":  true,
 		"dispatch.deliver": true,
-		"workflow.view":   true,
+		"workflow.view":    true,
 		"workflow.approve": true,
-		"admin.access":    true,
+		"admin.access":     true,
 	},
 	domain.RoleReception: {
-		"dispatch.view":   true,
-		"dispatch.create": true,
-		"dispatch.assign": true,
+		"dispatch.view":    true,
+		"dispatch.create":  true,
+		"dispatch.assign":  true,
 		"dispatch.deliver": true,
-		"workflow.view":   true,
+		"workflow.view":    true,
 	},
 	domain.RoleUser: {
-		"dispatch.view":  true,
-		"workflow.view":  true,
+		"dispatch.view":    true,
+		"workflow.view":    true,
 		"workflow.approve": true,
 	},
 }

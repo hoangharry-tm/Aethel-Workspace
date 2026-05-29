@@ -19,12 +19,12 @@ import (
 )
 
 const (
-	defaultMemoryKiB    = 65536
-	defaultIterations   = 3
-	defaultParallelism  = 4
-	saltLength          = 16
-	keyLength           = 32
-	accessTokenDuration = 15 * time.Minute
+	defaultMemoryKiB     = 65536
+	defaultIterations    = 3
+	defaultParallelism   = 4
+	saltLength           = 16
+	keyLength            = 32
+	accessTokenDuration  = 15 * time.Minute
 	refreshTokenDuration = 7 * 24 * time.Hour
 )
 
@@ -319,12 +319,12 @@ func (s *AuthService) writeAudit(
 	ip, ua string,
 ) error {
 	entry := &domain.AuditEntry{
-		OrganizationID:  orgID,
-		ActorUserID:     actorID,
-		ActionEventType: eventType,
+		OrganizationID:   orgID,
+		ActorUserID:      actorID,
+		ActionEventType:  eventType,
 		TargetResourceID: targetID,
-		IPAddress:       &ip,
-		UserAgent:       &ua,
+		IPAddress:        &ip,
+		UserAgent:        &ua,
 	}
 	return s.audit.Write(ctx, entry)
 }

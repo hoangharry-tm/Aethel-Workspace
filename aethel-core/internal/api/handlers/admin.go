@@ -12,11 +12,11 @@ import (
 )
 
 type AdminHandler struct {
-	users         domain.UserRepository
-	docTypes      domain.DocumentTypeRepository
-	routingRules  domain.RoutingRuleRepository
-	escRules      domain.EscalationRuleRepository
-	audit         domain.AuditRepository
+	users        domain.UserRepository
+	docTypes     domain.DocumentTypeRepository
+	routingRules domain.RoutingRuleRepository
+	escRules     domain.EscalationRuleRepository
+	audit        domain.AuditRepository
 }
 
 func NewAdminHandler(

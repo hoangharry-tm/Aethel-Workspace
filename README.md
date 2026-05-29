@@ -59,9 +59,9 @@ make dev
 make migrate-up
 ```
 
-Frontend: http://localhost:3000  
-Backend API: http://localhost:8080/api/v1  
-Health probe: http://localhost:8080/healthz
+Frontend: <http://localhost:3000>  
+Backend API: <http://localhost:8080/api/v1>  
+Health probe: <http://localhost:8080/healthz>
 
 ---
 
@@ -194,16 +194,16 @@ aethel migrate validate         # Render templates and validate SQL (no DB write
 
 ## Environment Variables
 
-| Variable | Required | Description |
-|---|---|---|
-| `AETHEL_ENV` | No | Runtime environment: `development` (default) or `production` |
-| `AETHEL_PORT` | No | HTTP listen port (default `8080`) |
-| `AETHEL_DB_PASSWORD` | Yes | PostgreSQL password |
-| `AETHEL_DB_DSN` | No | Full DSN (overrides individual connection fields) |
-| `AETHEL_JWT_SECRET` | Yes (prod) | HS256 signing secret (defaults to a dev-only value) |
-| `AETHEL_ARGON2_MEMORY_KIB` | No | Argon2id memory cost in KiB (default `65536`) |
-| `AETHEL_ARGON2_ITERATIONS` | No | Argon2id iteration count (default `3`) |
-| `AETHEL_ARGON2_PARALLELISM` | No | Argon2id parallelism (default `4`) |
+| Variable                    | Required   | Description                                                  |
+| --------------------------- | ---------- | ------------------------------------------------------------ |
+| `AETHEL_ENV`                | No         | Runtime environment: `development` (default) or `production` |
+| `AETHEL_PORT`               | No         | HTTP listen port (default `8080`)                            |
+| `AETHEL_DB_PASSWORD`        | Yes        | PostgreSQL password                                          |
+| `AETHEL_DB_DSN`             | No         | Full DSN (overrides individual connection fields)            |
+| `AETHEL_JWT_SECRET`         | Yes (prod) | HS256 signing secret (defaults to a dev-only value)          |
+| `AETHEL_ARGON2_MEMORY_KIB`  | No         | Argon2id memory cost in KiB (default `65536`)                |
+| `AETHEL_ARGON2_ITERATIONS`  | No         | Argon2id iteration count (default `3`)                       |
+| `AETHEL_ARGON2_PARALLELISM` | No         | Argon2id parallelism (default `4`)                           |
 
 See `.env.example` for a full reference.
 
@@ -213,10 +213,10 @@ See `.env.example` for a full reference.
 
 Only two YAML files are intended for IT administrators:
 
-| File | Purpose |
-|---|---|
-| `blueprints/server-database.yaml` | DB connection, pool config, migration settings, schema aliases |
-| `blueprints/ui-theme.yaml` | Branding seed (primary color, font, logo) — loaded once at first boot |
+| File                              | Purpose                                                               |
+| --------------------------------- | --------------------------------------------------------------------- |
+| `blueprints/server-database.yaml` | DB connection, pool config, migration settings, schema aliases        |
+| `blueprints/ui-theme.yaml`        | Branding seed (primary color, font, logo) — loaded once at first boot |
 
 All other configuration (navigation, feature flags, org profile) is managed at runtime through the `/admin/*` pages and stored in PostgreSQL.
 

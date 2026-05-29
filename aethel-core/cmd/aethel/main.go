@@ -117,17 +117,17 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	// 6. Build stub repositories (replaced by real DB impls in Sprint 2–4).
 	var (
-		userRepo    domain.UserRepository    = &noopUserRepo{}
-		sessionRepo domain.SessionRepository = &noopSessionRepo{}
-		pwResetRepo domain.PasswordResetRepository = &noopPWResetRepo{}
-		auditRepo   domain.AuditRepository   = &noopAuditRepo{}
-		dispatchRepo domain.DispatchRepository = &noopDispatchRepo{}
-		eventRepo   domain.DispatchEventRepository = &noopEventRepo{}
-		routingRepo domain.RoutingRuleRepository  = &noopRoutingRepo{}
-		msRepo      domain.MinuteSheetRepository   = &noopMSRepo{}
-		gnRepo      domain.GreenNoteRepository     = &noopGNRepo{}
-		docTypeRepo domain.DocumentTypeRepository  = &noopDocTypeRepo{}
-		escRepo     domain.EscalationRuleRepository = &noopEscRepo{}
+		userRepo     domain.UserRepository           = &noopUserRepo{}
+		sessionRepo  domain.SessionRepository        = &noopSessionRepo{}
+		pwResetRepo  domain.PasswordResetRepository  = &noopPWResetRepo{}
+		auditRepo    domain.AuditRepository          = &noopAuditRepo{}
+		dispatchRepo domain.DispatchRepository       = &noopDispatchRepo{}
+		eventRepo    domain.DispatchEventRepository  = &noopEventRepo{}
+		routingRepo  domain.RoutingRuleRepository    = &noopRoutingRepo{}
+		msRepo       domain.MinuteSheetRepository    = &noopMSRepo{}
+		gnRepo       domain.GreenNoteRepository      = &noopGNRepo{}
+		docTypeRepo  domain.DocumentTypeRepository   = &noopDocTypeRepo{}
+		escRepo      domain.EscalationRuleRepository = &noopEscRepo{}
 	)
 
 	// 7. Wire services.
@@ -262,13 +262,13 @@ func (r *noopUserRepo) GetByEmail(_ context.Context, _ uuid.UUID, _ string) (*do
 func (r *noopUserRepo) List(_ context.Context, _ uuid.UUID, _ domain.Page) ([]domain.User, error) {
 	return nil, nil
 }
-func (r *noopUserRepo) Create(_ context.Context, _ *domain.User) error             { return nil }
-func (r *noopUserRepo) Update(_ context.Context, _ *domain.User) error             { return nil }
+func (r *noopUserRepo) Create(_ context.Context, _ *domain.User) error                    { return nil }
+func (r *noopUserRepo) Update(_ context.Context, _ *domain.User) error                    { return nil }
 func (r *noopUserRepo) UpdatePasswordHash(_ context.Context, _ uuid.UUID, _ string) error { return nil }
-func (r *noopUserRepo) IncrementFailedLogins(_ context.Context, _ uuid.UUID) error { return nil }
-func (r *noopUserRepo) ResetFailedLogins(_ context.Context, _ uuid.UUID) error     { return nil }
-func (r *noopUserRepo) LockUntil(_ context.Context, _ uuid.UUID, _ time.Time) error { return nil }
-func (r *noopUserRepo) SetLastLogin(_ context.Context, _ uuid.UUID) error           { return nil }
+func (r *noopUserRepo) IncrementFailedLogins(_ context.Context, _ uuid.UUID) error        { return nil }
+func (r *noopUserRepo) ResetFailedLogins(_ context.Context, _ uuid.UUID) error            { return nil }
+func (r *noopUserRepo) LockUntil(_ context.Context, _ uuid.UUID, _ time.Time) error       { return nil }
+func (r *noopUserRepo) SetLastLogin(_ context.Context, _ uuid.UUID) error                 { return nil }
 
 type noopSessionRepo struct{}
 
@@ -343,7 +343,7 @@ func (r *noopRoutingRepo) GetByID(_ context.Context, _, _ uuid.UUID) (*domain.Ro
 }
 func (r *noopRoutingRepo) Create(_ context.Context, _ *domain.RoutingRule) error { return nil }
 func (r *noopRoutingRepo) Update(_ context.Context, _ *domain.RoutingRule) error { return nil }
-func (r *noopRoutingRepo) Delete(_ context.Context, _, _ uuid.UUID) error      { return nil }
+func (r *noopRoutingRepo) Delete(_ context.Context, _, _ uuid.UUID) error        { return nil }
 
 type noopMSRepo struct{}
 
@@ -353,7 +353,7 @@ func (r *noopMSRepo) GetByDispatchID(_ context.Context, _, _ uuid.UUID) (*domain
 func (r *noopMSRepo) GetByID(_ context.Context, _, _ uuid.UUID) (*domain.MinuteSheet, error) {
 	return nil, domain.ErrNotFound
 }
-func (r *noopMSRepo) Create(_ context.Context, _ *domain.MinuteSheet) error { return nil }
+func (r *noopMSRepo) Create(_ context.Context, _ *domain.MinuteSheet) error        { return nil }
 func (r *noopMSRepo) Approve(_ context.Context, _, _ uuid.UUID, _ uuid.UUID) error { return nil }
 
 type noopGNRepo struct{}
@@ -376,7 +376,7 @@ func (r *noopDocTypeRepo) GetByID(_ context.Context, _, _ uuid.UUID) (*domain.Do
 }
 func (r *noopDocTypeRepo) Create(_ context.Context, _ *domain.DocumentType) error { return nil }
 func (r *noopDocTypeRepo) Update(_ context.Context, _ *domain.DocumentType) error { return nil }
-func (r *noopDocTypeRepo) Delete(_ context.Context, _, _ uuid.UUID) error       { return nil }
+func (r *noopDocTypeRepo) Delete(_ context.Context, _, _ uuid.UUID) error         { return nil }
 
 type noopEscRepo struct{}
 

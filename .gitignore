@@ -5,15 +5,32 @@
 
 # Build output
 build/bin/
+aethel-core/bin/
 aethel-core/aethel
 
 # Frontend build artifacts (tracked separately via Dockerfile)
 aethel-view/.nuxt/
 aethel-view/.output/
+aethel-view/dist/
 aethel-view/node_modules/
+aethel-view/coverage/
+aethel-view/test-results/
+aethel-view/playwright-report/
+aethel-view/.pnpm-store/
 
 # Go toolchain
 aethel-core/vendor/
+aethel-core/*.test
+aethel-core/coverage.out
+aethel-core/coverage.html
+
+# Kubernetes — never commit real secret manifests
+k8s/**/*-secret.yaml
+k8s/**/*-secrets.yaml
+
+# Logs
+*.log
+logs/
 
 # OS
 .DS_Store
@@ -21,5 +38,6 @@ Thumbs.db
 
 # Editor
 .idea/
+.vscode/
 *.swp
 *.swo

@@ -15,7 +15,7 @@ The system is organized around three domain pillars:
 
 ```
 aethel-view/        # Nuxt 4 frontend — UI/UX prototype COMPLETE (Phase 1 done)
-aethel-core/        # Go backend — scaffolded, currently empty (Phase 2)
+aethel-core/        # Go backend — Sprint 0 foundation complete (Phase 2 in progress)
 aethel-scripts/     # Build scripts — scaffolded, currently empty
 blueprints/         # Declarative YAML configuration files (see Blueprint Status below)
   examples/         # Reference blueprints (do not edit — source of truth for schema)
@@ -27,8 +27,9 @@ build/bin/          # Compiled output
 **Phase 1 — UI/UX Prototype**: Complete as of 2026-05-25.
 - 17 pages, 20 user stories, 3 roles (ADMIN / RECEPTION / USER), 0 TypeScript errors
 - Figma design export complete: file key `aqW7snNu6m0RoD0ZXrMH0f` (5 pages: Design System, Login, Dashboard, Intake Form + Document Detail, Mobile + Admin)
+- **Task 05 — Semantic token migration**: Complete as of 2026-05-29. All 30+ Vue files migrated from hardcoded palette classes to three-layer CSS variable system. Verification grep returns zero matches.
 
-**Phase 2 — Go Backend** (`aethel-core/`): Architecture designed as of 2026-05-26; architectural pivot to runtime-configurable completed 2026-05-27. Database design complete: 42 migration SQL files written (migrations 1–20 original, migration 21 extends `branding_configs`); full backend architecture documented; config API designed (`GET /api/v1/config`, `PATCH /api/v1/admin/config/*`, in-memory cache); DevOps pipeline ready. Go implementation begins Sprint 0.
+**Phase 2 — Go Backend** (`aethel-core/`): Architecture designed as of 2026-05-26; architectural pivot to runtime-configurable completed 2026-05-27. Database design complete: 42 migration SQL files written (migrations 1–20 original, migration 21 extends `branding_configs`); full backend architecture documented; config API designed (`GET /api/v1/config`, `PATCH /api/v1/admin/config/*`, in-memory cache); DevOps pipeline ready. **Sprint 0 complete** (2026-05-29): domain packages, cobra CLI, 50+ routes, 9-layer middleware, stub repositories — all scaffolded and building.
 
 ## Frontend — `aethel-view/`
 
@@ -66,6 +67,36 @@ No lint script defined; ESLint via `eslint.config.mjs` (extends `.nuxt/eslint.co
 - **Urgency colors**: IMMEDIATE → rose, PRIORITY → amber, ROUTINE → emerald
 - **Document status colors**: PENDING_ASSIGNMENT → neutral, UNDER_REVIEW → primary/indigo, IN_TRANSIT → sky, ATTEMPTED_DELIVERY → amber, DELIVERED → emerald, ESCALATED → rose, DISPATCHED → violet
 
+### Dynamic Theming
+
+All color styling uses a three-layer CSS variable system so the IT admin can change branding at runtime via `/admin/branding` without a rebuild.
+
+**Layer 1 — `app/assets/css/main.css`**: semantic CSS variable defaults + `@theme` mapping to Tailwind utilities:
+```css
+:root {
+  --color-text-body:   theme(colors.slate.800);
+  --color-text-muted:  theme(colors.slate.500);
+  --color-text-accent: theme(colors.indigo.600);
+  --color-bg-surface:  theme(colors.white);
+  --color-bg-subtle:   theme(colors.slate.50);
+}
+@theme {
+  --color-body:   var(--color-text-body);
+  --color-muted:  var(--color-text-muted);
+  --color-accent: var(--color-text-accent);
+}
+```
+
+**Layer 2 — `app/app.vue`**: `useHead()` overrides variables at runtime from `useAppRuntimeConfig()`:
+- `--ui-primary` and `--color-text-accent` → `config.branding.primaryColor`
+- `--ui-neutral` → `config.branding.neutralPalette`
+
+**Layer 3 — Components**: use only semantic class names — never a Tailwind palette name directly:
+- `text-body` / `text-muted` / `text-accent` instead of `text-slate-800` / `text-slate-500` / `text-indigo-600`
+- `color="primary"` on Nuxt UI components (already wired to `--ui-primary`)
+
+**Rule:** `main.css` is the single place mapping semantic names → palette colors. `app.vue` `useHead()` is the single runtime override point. No component may reference a palette name (`slate`, `indigo`, etc.) directly. **Migration complete (Task 05, 2026-05-29):** all 30+ Vue files have been migrated — `grep "text-slate\|text-indigo\|bg-slate\|bg-white\|border-slate\|border-indigo" app/` returns zero matches.
+
 ### Page Structure
 
 All pages use either `layout: 'workspace'` or `layout: 'auth'`. The workspace layout (`app/layouts/workspace.vue`) is a fixed `h-dvh` shell: `WorkspaceSidebar` (left) + topbar `WorkspaceNavbar` + scrollable `<main>` + `NotificationDrawer` (right portal).
@@ -95,9 +126,9 @@ All pages use either `layout: 'workspace'` or `layout: 'auth'`. The workspace la
 ### Components
 
 **Layout** (`app/components/layout/`):
-- `WorkspaceSidebar.vue` — collapsible (`w-64`/`w-16`), role-gated nav groups, active state with indigo-50 bg + 3px left accent bar; mobile via `USlideover` + `useSidebarDrawer`
+- `WorkspaceSidebar.vue` — collapsible (`w-64`/`w-16`), role-gated nav groups, active state with `bg-accent/5` bg + 3px left accent bar; mobile via `USlideover` + `useSidebarDrawer`
 - `WorkspaceNavbar.vue` — 56px topbar; profile dropdown with role switcher (ADMIN / RECEPTION / USER) for prototype demo; notification bell opens `useNotificationDrawer`
-- `NotificationDrawer.vue` — `USlideover` from right, w-96; unread items styled with `border-l-2 border-indigo-500 bg-indigo-50/50`
+- `NotificationDrawer.vue` — `USlideover` from right, w-96; unread items styled with `border-l-2 border-accent bg-accent/5`
 
 **Shared** (`app/components/shared/`):
 - `UrgencyBadge.vue` — `UBadge` wrapping IMMEDIATE/PRIORITY/ROUTINE with color/icon from blueprint

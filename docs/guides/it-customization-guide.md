@@ -13,11 +13,10 @@ Before touching any configuration, understand this core concept: **Aethel Worksp
 | Blueprint file | What it controls |
 |---|---|
 | `blueprints/server-database.yaml` | Connection strings, connection pooling, migrations, table name aliases, partitioning, extensions, and performance guardrails |
-| `blueprints/server-queries.yaml` | Externalized SQL statements for complex queries — IT can tune SQL without recompiling the Go backend |
 
-Changes to either file require a **service restart** to take effect. Hot-reload is not supported in v1.
+Changes to this file require a **service restart** to take effect. Hot-reload is not supported in v1.
 
-The system is intentionally designed so that IT departments can restyle, restructure, and reconfigure the database layer by editing YAML — without ever touching Go source code.
+The system is intentionally designed so that IT departments can reconfigure the database layer by editing YAML — without ever touching Go source code.
 
 ---
 
@@ -608,163 +607,13 @@ ALTER TYPE {{ .Schema }}.priority_level RENAME TO {{ E "priority_level" }};
 
 ---
 
-## Phase 5: Customizing queries (`server-queries.yaml`)
+## Phase 5: SQL query tuning
 
-### 5.1 Why queries are externalized
+SQL queries for inbox sorting, full-text search, and report aggregations are managed as a **developer-internal** file (`aethel-core/internal/database/queries/queries.yaml`). This file is not IT-facing and is not in the `blueprints/` directory.
 
-Complex SQL queries — inbox sorting logic, full-text search, report aggregations — are not hardcoded in the Go source. They live in `blueprints/server-queries.yaml`. This means:
+If your organization needs to tune query performance (e.g., change sort order, add index hints, adjust pagination limits), this must be done by a developer with Go backend access. The file uses plain SQL with positional parameters (`$1`, `$2`, etc.) and is compiled into prepared statements at startup.
 
-- IT can tune query performance (change `ORDER BY`, add filters, adjust pagination limits) **without recompiling the backend**.
-- The DBA can add hints or restructure joins to match the specific execution plan characteristics of the production cluster.
-- A service restart applies the new queries — no code deployment required.
-
-This applies only to complex, performance-sensitive queries. Simple CRUD operations are handled by the repository layer in the Go source and are not externalizable.
-
----
-
-### 5.2 Structure of a query definition
-
-```yaml
-queries:
-  dispatch:                          # pillar group key
-    fetch_active_inbox:              # query name (Go identifier)
-      statement: |                   # raw SQL; positional params use $1, $2, ...
-        SELECT id, tracking_number, sender_name, subject_line, priority_level, created_at
-        FROM dispatches
-        WHERE assigned_department_id = $1
-          AND status_state IN ('PENDING_ASSIGNMENT', 'UNDER_REVIEW')
-        ORDER BY
-          CASE priority_level
-            WHEN 'IMMEDIATE' THEN 1
-            WHEN 'PRIORITY'  THEN 2
-            WHEN 'ROUTINE'   THEN 3
-          END ASC,
-          created_at DESC
-        LIMIT $2 OFFSET $3;
-      params:
-        - name: "department_id"
-          type: "uuid"
-          nullable: false
-        - name: "limit"
-          type: "integer"
-          nullable: false
-        - name: "offset"
-          type: "integer"
-          nullable: false
-      timeout_ms: 3000               # overrides global_query_defaults.timeout_ms
-      cache_ttl_seconds: 0           # 0 = no caching; >0 enables result cache
-      required_permission: "dispatch.view"
-      description: "Fetch active inbox items for a department, sorted by urgency then recency."
-```
-
-**Field reference:**
-
-| Field | Required | What it does |
-|---|---|---|
-| `statement` | yes | The raw SQL. Use `$1`, `$2`, etc. for positional parameters. |
-| `params` | yes | Ordered list of parameters. The order must match `$1`, `$2`, etc. in the statement. |
-| `params[].name` | yes | Human-readable name for the parameter. Used in error messages and documentation. |
-| `params[].type` | yes | PostgreSQL type name. See the type reference table below. |
-| `params[].nullable` | yes | Whether the parameter can be `NULL`. |
-| `timeout_ms` | no | Per-query timeout in milliseconds. Overrides `global_query_defaults.timeout_ms`. |
-| `cache_ttl_seconds` | no | If greater than 0, the result is cached for this many seconds. |
-| `required_permission` | no | RBAC permission that the calling user must hold. Enforced by middleware before the query runs. |
-| `description` | no | Documentation string. Ignored by the runtime. |
-
----
-
-### 5.3 Parameter type reference
-
-| YAML type | PostgreSQL type | Notes |
-|---|---|---|
-| `uuid` | `uuid` | Standard UUID format |
-| `varchar` | `varchar(n)` | Variable-length string |
-| `text` | `text` | Unlimited-length string |
-| `integer` | `integer` | 32-bit signed integer |
-| `bigint` | `bigint` | 64-bit signed integer |
-| `smallint` | `smallint` | 16-bit signed integer |
-| `boolean` | `boolean` | `true` / `false` |
-| `timestamptz` | `timestamptz` | Timestamp with timezone (always UTC internally) |
-| `inet` | `inet` | IP address (IPv4 or IPv6) |
-| `jsonb` | `jsonb` | Binary JSON |
-
----
-
-### 5.4 Worked example: changing inbox sort order
-
-Your operations team has requested that the inbox sort items by **arrival time first** (oldest first) rather than by urgency. Here is how to make that change:
-
-**Before** (current behavior — urgency first, then recency):
-
-```yaml
-queries:
-  dispatch:
-    fetch_active_inbox_by_department:
-      statement: |
-        SELECT id, tracking_number, sender_name, subject_line, priority_level, created_at
-        FROM dispatches
-        WHERE assigned_department_id = $1
-          AND status_state IN ('PENDING_ASSIGNMENT', 'UNDER_REVIEW')
-        ORDER BY
-          CASE priority_level
-            WHEN 'IMMEDIATE' THEN 1
-            WHEN 'PRIORITY'  THEN 2
-            WHEN 'ROUTINE'   THEN 3
-            ELSE 4
-          END ASC,
-          created_at DESC
-        LIMIT $2 OFFSET $3;
-```
-
-**After** (arrival time first, oldest at the top):
-
-```yaml
-queries:
-  dispatch:
-    fetch_active_inbox_by_department:
-      statement: |
-        SELECT id, tracking_number, sender_name, subject_line, priority_level, created_at
-        FROM dispatches
-        WHERE assigned_department_id = $1
-          AND status_state IN ('PENDING_ASSIGNMENT', 'UNDER_REVIEW')
-        ORDER BY created_at ASC
-        LIMIT $2 OFFSET $3;
-      description: "Inbox sorted oldest-first per operations team request (2026-06-01)."
-```
-
-Save the file and restart the backend service. The new sort order takes effect immediately on next startup — no code deployment, no migration needed.
-
----
-
-### 5.5 Permission identifiers reference
-
-The `required_permission` field references the RBAC permission tree:
-
-| Permission | Who has it | What it guards |
-|---|---|---|
-| `dispatch.view` | RECEPTION, ADMIN | Reading the dispatch queue |
-| `dispatch.create` | RECEPTION | Logging new inbound/outbound items |
-| `dispatch.deliver` | RECEPTION | Marking a dispatch as delivered |
-| `workflow.view` | USER, RECEPTION, ADMIN | Reading minute sheets |
-| `workflow.approve` | USER, RECEPTION | Appending green notes |
-| `admin.access` | ADMIN | Any admin panel operation |
-| `admin.audit` | SYS_ADMIN | Reading the audit ledger |
-| `archive.view` | RECEPTION, ADMIN | Searching historical records |
-
----
-
-### 5.6 Pillar grouping convention
-
-Organize your queries under the correct group key. The Go repository layer uses these keys to look up queries at startup:
-
-| Group key | Pillar | Examples |
-|---|---|---|
-| `dispatch` | Pillar 1 | Inbox fetching, tracking lookups, status updates |
-| `workflow` | Pillar 2 | Minute sheet fetching, green note appending |
-| `governance` | Pillar 3 | Audit ledger writes, tamper detection reads |
-| `admin` | Cross-pillar | User management, document type CRUD, routing rule management |
-| `reports` | Cross-pillar | Aggregation queries, dashboard statistics |
-| `search` | Cross-pillar | Full-text search, filtered search |
+**IT escape hatch:** If you need query changes without a developer, the recommended path is to open a service request with the team that manages the Aethel deployment. They can update `queries.yaml` and restart the backend — no database schema changes required.
 
 ---
 
@@ -1034,9 +883,9 @@ ORDER BY child.relname;
 
 ## Quick reference: blueprint files
 
-| File | Restart required | What to edit |
-|---|---|---|
-| `blueprints/server-database.yaml` | Yes | Connection, pooling, migrations, table/enum aliases, partitioning, extensions, performance |
-| `blueprints/server-queries.yaml` | Yes | SQL statement text, sort order, parameter types, timeouts, permissions |
+| File | Audience | Restart required | What to edit |
+|---|---|---|---|
+| `blueprints/server-database.yaml` | IT admin | Yes | Connection, pooling, migrations, table/enum aliases, partitioning, extensions, performance |
+| `aethel-core/internal/database/queries/queries.yaml` | Developer only | Yes | SQL statement text, sort order, parameter types, timeouts, permissions |
 
-Both files are loaded once at startup. There is no hot-reload in v1. Plan service restarts when rolling out blueprint changes in production.
+Blueprint files are loaded once at startup. There is no hot-reload in v1. Plan service restarts when rolling out changes in production.

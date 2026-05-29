@@ -110,7 +110,7 @@ useHead({
 - `color="primary"` on Nuxt UI components — already wired to `--ui-primary`
 - Never: `text-slate-500`, `text-indigo-600`, `bg-indigo-*`, etc.
 
-**Phase 2 audit task**: `grep -r "text-indigo\|text-slate\|bg-indigo\|bg-slate" app/` surfaces all hardcoded palette classes in the current prototype that need replacing.
+**Migration complete (Task 05, 2026-05-29):** All hardcoded palette classes replaced. `grep -r "text-indigo\|text-slate\|bg-indigo\|bg-slate\|bg-white\|border-slate\|border-indigo" app/` returns zero matches. TypeScript typecheck passes with zero errors. Do not introduce new palette class names — use semantic tokens only.
 
 ### Block Components (`app/components/blocks/`)
 
