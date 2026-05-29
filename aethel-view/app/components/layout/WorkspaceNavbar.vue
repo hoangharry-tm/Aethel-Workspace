@@ -84,7 +84,7 @@ const profileItems = computed(() => [
 </script>
 
 <template>
-  <header class="h-14 bg-white border-b border-slate-200 flex items-center px-4 gap-3 flex-shrink-0 z-10">
+  <header class="h-14 bg-surface border-b border-border-base flex items-center px-4 gap-3 flex-shrink-0 z-10">
     <!-- Mobile hamburger -->
     <UButton
       icon="i-lucide-menu"
@@ -96,7 +96,7 @@ const profileItems = computed(() => [
     />
 
     <!-- Page title -->
-    <h1 class="text-sm font-semibold text-slate-800 truncate flex-shrink-0">
+    <h1 class="text-sm font-semibold text-body truncate flex-shrink-0">
       {{ pageTitle }}
     </h1>
 
@@ -145,18 +145,18 @@ const profileItems = computed(() => [
           :alt="currentUser.name"
           size="xs"
         />
-        <span class="hidden sm:block text-sm font-medium text-slate-700 max-w-24 truncate">
+        <span class="hidden sm:block text-sm font-medium text-body max-w-24 truncate">
           {{ currentUser.name }}
         </span>
-        <UIcon name="i-lucide-chevron-down" class="h-3.5 w-3.5 text-slate-400" />
+        <UIcon name="i-lucide-chevron-down" class="h-3.5 w-3.5 text-icon-disabled" />
       </UButton>
 
       <template #profile>
         <div class="px-3 py-2">
-          <p class="text-sm font-semibold text-slate-800">
+          <p class="text-sm font-semibold text-body">
             {{ currentUser.name }}
           </p>
-          <p class="text-xs text-slate-500">
+          <p class="text-xs text-muted">
             {{ currentUser.email }}
           </p>
           <div class="mt-1">

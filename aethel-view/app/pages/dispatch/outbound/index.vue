@@ -55,60 +55,60 @@ function timeAgo(timestamp: string): string {
     <!-- Header -->
     <div class="flex items-center justify-between gap-4 flex-wrap">
       <div>
-        <h1 class="text-xl font-bold text-slate-800">
+        <h1 class="text-xl font-bold text-body">
           Outbound Documents
         </h1>
-        <p class="text-sm text-slate-500 mt-0.5">
+        <p class="text-sm text-muted mt-0.5">
           Outgoing dispatch requests from staff
         </p>
       </div>
     </div>
 
     <!-- Table -->
-    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <div class="bg-surface rounded-xl border border-border-base overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
-          <thead class="bg-slate-50 border-b border-slate-200">
+          <thead class="bg-subtle border-b border-border-base">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <th class="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider">
                 Tracking ID
               </th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <th class="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider">
                 Subject
               </th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">
+              <th class="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider hidden sm:table-cell">
                 Requested By
               </th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <th class="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider">
                 Priority
               </th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <th class="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider">
                 Status
               </th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">
+              <th class="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider hidden md:table-cell">
                 Submitted
               </th>
-              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <th class="px-4 py-3 text-right text-xs font-semibold text-muted uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-100">
+          <tbody class="divide-y divide-border-faint">
             <tr
               v-for="doc in outboundDocs"
               :key="doc.id"
-              class="hover:bg-slate-50 transition-colors"
+              class="hover:bg-subtle transition-colors"
             >
               <td class="px-4 py-3">
-                <span class="font-mono text-xs text-slate-600">{{ doc.trackingNumber }}</span>
+                <span class="font-mono text-xs text-muted">{{ doc.trackingNumber }}</span>
               </td>
               <td class="px-4 py-3 max-w-xs">
-                <p class="text-sm font-medium text-slate-800 truncate">
+                <p class="text-sm font-medium text-body truncate">
                   {{ doc.subject }}
                 </p>
               </td>
               <td class="px-4 py-3 hidden sm:table-cell">
-                <span class="text-xs text-slate-600">{{ doc.senderName }}</span>
+                <span class="text-xs text-muted">{{ doc.senderName }}</span>
               </td>
               <td class="px-4 py-3">
                 <UrgencyBadge :level="doc.urgency" />
@@ -117,7 +117,7 @@ function timeAgo(timestamp: string): string {
                 <DocumentStatusBadge :status="doc.status" />
               </td>
               <td class="px-4 py-3 hidden md:table-cell">
-                <span class="text-xs text-slate-500">{{ timeAgo(doc.dateReceived) }}</span>
+                <span class="text-xs text-muted">{{ timeAgo(doc.dateReceived) }}</span>
               </td>
               <td class="px-4 py-3 text-right">
                 <div class="flex justify-end gap-2">
@@ -157,10 +157,10 @@ function timeAgo(timestamp: string): string {
             <UIcon name="i-lucide-send" class="h-5 w-5 text-violet-600" />
           </div>
           <div>
-            <h3 class="text-base font-semibold text-slate-800">
+            <h3 class="text-base font-semibold text-body">
               Mark as Dispatched
             </h3>
-            <p class="text-xs text-slate-500">
+            <p class="text-xs text-muted">
               Confirm the dispatch method used
             </p>
           </div>

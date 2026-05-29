@@ -147,7 +147,7 @@ const deliveryModeLabel: Record<string, string> = {
         size="sm"
         @click="$router.back()"
       />
-      <h1 class="text-xl font-bold text-slate-800">
+      <h1 class="text-xl font-bold text-body">
         Document Detail
       </h1>
     </div>
@@ -155,11 +155,11 @@ const deliveryModeLabel: Record<string, string> = {
     <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
       <!-- Left panel: 3/5 -->
       <div class="lg:col-span-3 space-y-4">
-        <div class="bg-white rounded-xl border border-slate-200 p-6 space-y-6">
+        <div class="bg-surface rounded-xl border border-border-base p-6 space-y-6">
           <!-- Tracking + badges -->
           <div>
             <div class="flex items-center gap-2 mb-2">
-              <span class="font-mono text-lg font-bold text-slate-800">{{ doc?.trackingNumber }}</span>
+              <span class="font-mono text-lg font-bold text-body">{{ doc?.trackingNumber }}</span>
               <UButton
                 icon="i-lucide-copy"
                 color="neutral"
@@ -178,49 +178,49 @@ const deliveryModeLabel: Record<string, string> = {
 
           <!-- Subject -->
           <div>
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+            <p class="text-xs font-semibold uppercase tracking-wider text-icon-disabled mb-1">
               Subject
             </p>
-            <p class="text-sm font-medium text-slate-800">
+            <p class="text-sm font-medium text-body">
               {{ doc?.subject }}
             </p>
           </div>
 
           <!-- Sender info -->
           <div>
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
+            <p class="text-xs font-semibold uppercase tracking-wider text-icon-disabled mb-3">
               Sender Information
             </p>
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <p class="text-xs text-slate-500">
+                <p class="text-xs text-muted">
                   Name
                 </p>
-                <p class="text-sm font-medium text-slate-800">
+                <p class="text-sm font-medium text-body">
                   {{ doc?.senderName }}
                 </p>
               </div>
               <div>
-                <p class="text-xs text-slate-500">
+                <p class="text-xs text-muted">
                   Organization
                 </p>
-                <p class="text-sm font-medium text-slate-800">
+                <p class="text-sm font-medium text-body">
                   {{ doc?.senderOrg }}
                 </p>
               </div>
               <div>
-                <p class="text-xs text-slate-500">
+                <p class="text-xs text-muted">
                   Delivery Mode
                 </p>
-                <p class="text-sm font-medium text-slate-800">
+                <p class="text-sm font-medium text-body">
                   {{ deliveryModeLabel[doc?.deliveryMode ?? ''] ?? doc?.deliveryMode }}
                 </p>
               </div>
               <div>
-                <p class="text-xs text-slate-500">
+                <p class="text-xs text-muted">
                   Date Received
                 </p>
-                <p class="text-sm font-medium text-slate-800">
+                <p class="text-sm font-medium text-body">
                   {{ doc ? timeAgo(doc.dateReceived) : '' }}
                 </p>
               </div>
@@ -229,14 +229,14 @@ const deliveryModeLabel: Record<string, string> = {
 
           <!-- Routing -->
           <div>
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
+            <p class="text-xs font-semibold uppercase tracking-wider text-icon-disabled mb-3">
               Routing
             </p>
             <div class="mb-2">
-              <p class="text-xs text-slate-500">
+              <p class="text-xs text-muted">
                 Assigned To
               </p>
-              <p class="text-sm font-medium text-slate-800">
+              <p class="text-sm font-medium text-body">
                 {{ doc?.department }} Department
               </p>
             </div>
@@ -251,7 +251,7 @@ const deliveryModeLabel: Record<string, string> = {
                 <UIcon
                   v-if="i < doc.routingChain.length - 1"
                   name="i-lucide-arrow-right"
-                  class="h-3 w-3 text-slate-400"
+                  class="h-3 w-3 text-icon-disabled"
                 />
               </template>
             </div>
@@ -259,16 +259,16 @@ const deliveryModeLabel: Record<string, string> = {
 
           <!-- Attachments -->
           <div>
-            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
+            <p class="text-xs font-semibold uppercase tracking-wider text-icon-disabled mb-3">
               Attachments
             </p>
             <div
               v-for="file in doc?.attachments"
               :key="file"
-              class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+              class="flex items-center gap-2 rounded-lg border border-border-base bg-subtle px-3 py-2"
             >
               <UIcon name="i-lucide-file-text" class="h-5 w-5 text-rose-500 flex-shrink-0" />
-              <span class="text-sm text-slate-700 flex-1 truncate">{{ file }}</span>
+              <span class="text-sm text-body flex-1 truncate">{{ file }}</span>
               <UButton icon="i-lucide-download" color="neutral" variant="ghost" size="xs" />
             </div>
           </div>
@@ -306,8 +306,8 @@ const deliveryModeLabel: Record<string, string> = {
 
       <!-- Right panel: 2/5 -->
       <div class="lg:col-span-2">
-        <div class="bg-white rounded-xl border border-slate-200 p-6 sticky top-6">
-          <h2 class="text-sm font-semibold text-slate-800 mb-6">
+        <div class="bg-surface rounded-xl border border-border-base p-6 sticky top-6">
+          <h2 class="text-sm font-semibold text-body mb-6">
             Event Timeline
           </h2>
           <EventTimeline :events="timelineEvents" />
@@ -321,20 +321,20 @@ const deliveryModeLabel: Record<string, string> = {
     <template #content>
       <div class="p-6 space-y-4">
         <div class="flex items-center gap-3">
-          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100">
-            <UIcon name="i-lucide-hand" class="h-5 w-5 text-indigo-600" />
+          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-accent/10">
+            <UIcon name="i-lucide-hand" class="h-5 w-5 text-accent" />
           </div>
           <div>
-            <h3 class="text-base font-semibold text-slate-800">
+            <h3 class="text-base font-semibold text-body">
               Confirm Document Handoff
             </h3>
-            <p class="text-xs text-slate-500">
+            <p class="text-xs text-muted">
               {{ doc?.trackingNumber }}
             </p>
           </div>
         </div>
 
-        <p class="text-sm text-slate-600">
+        <p class="text-sm text-muted">
           I confirm this document has been physically handed to the recipient and they have acknowledged receipt.
         </p>
 
@@ -380,16 +380,16 @@ const deliveryModeLabel: Record<string, string> = {
             <UIcon name="i-lucide-check-circle" class="h-5 w-5 text-emerald-600" />
           </div>
           <div>
-            <h3 class="text-base font-semibold text-slate-800">
+            <h3 class="text-base font-semibold text-body">
               Acknowledge Receipt
             </h3>
-            <p class="text-xs text-slate-500">
+            <p class="text-xs text-muted">
               {{ doc?.trackingNumber }}
             </p>
           </div>
         </div>
 
-        <p class="text-sm text-slate-600">
+        <p class="text-sm text-muted">
           By clicking confirm, you acknowledge that you have received this document and accept responsibility for its handling.
         </p>
 

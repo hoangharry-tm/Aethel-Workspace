@@ -27,10 +27,10 @@ async function handleLogin() {
 <template>
   <div class="p-8">
     <div class="mb-6">
-      <h2 class="text-xl font-bold text-slate-800">
+      <h2 class="text-xl font-bold text-body">
         Sign in to Aethel Workspace
       </h2>
-      <p class="text-sm text-slate-500 mt-1">
+      <p class="text-sm text-muted mt-1">
         Enter your credentials to access your workspace.
       </p>
     </div>
@@ -63,7 +63,7 @@ async function handleLogin() {
       <div class="flex justify-end">
         <button
           type="button"
-          class="text-xs text-indigo-600 hover:text-indigo-700 hover:underline"
+          class="text-xs text-accent hover:text-accent hover:underline"
         >
           Forgot password?
         </button>

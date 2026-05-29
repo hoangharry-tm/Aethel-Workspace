@@ -55,17 +55,17 @@ async function handleSubmit() {
         @click="$router.back()"
       />
       <div>
-        <h1 class="text-xl font-bold text-slate-800">
+        <h1 class="text-xl font-bold text-body">
           Submit Outgoing Request
         </h1>
-        <p class="text-sm text-slate-500 mt-0.5">
+        <p class="text-sm text-muted mt-0.5">
           Request reception to dispatch a document on your behalf
         </p>
       </div>
     </div>
 
     <form @submit.prevent="handleSubmit">
-      <div class="bg-white rounded-xl border border-slate-200 p-6 space-y-5">
+      <div class="bg-surface rounded-xl border border-border-base p-6 space-y-5">
         <UFormField label="Recipient Name" name="recipientName" required>
           <UInput
             v-model="form.recipientName"
@@ -102,15 +102,15 @@ async function handleSubmit() {
 
         <!-- Attachment zone -->
         <div>
-          <p class="text-sm font-medium text-slate-700 mb-2">
+          <p class="text-sm font-medium text-body mb-2">
             Attachment (Optional)
           </p>
-          <div class="border-2 border-dashed border-slate-200 rounded-lg p-6 flex flex-col items-center justify-center text-center hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors cursor-pointer">
-            <UIcon name="i-lucide-upload-cloud" class="h-8 w-8 text-slate-300 mb-2" />
-            <p class="text-sm text-slate-500">
+          <div class="border-2 border-dashed border-border-base rounded-lg p-6 flex flex-col items-center justify-center text-center hover:border-accent/50 hover:bg-accent/5 transition-colors cursor-pointer">
+            <UIcon name="i-lucide-upload-cloud" class="h-8 w-8 text-icon-faint mb-2" />
+            <p class="text-sm text-muted">
               Drag file here or click to browse
             </p>
-            <p class="text-xs text-slate-400 mt-0.5">
+            <p class="text-xs text-icon-disabled mt-0.5">
               Maximum 25MB
             </p>
           </div>

@@ -27,9 +27,9 @@ function timeAgo(timestamp: string): string {
 </script>
 
 <template>
-  <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-    <div class="px-4 py-3 border-b border-slate-100">
-      <h3 class="text-sm font-semibold text-slate-800">
+  <div class="bg-surface rounded-xl border border-border-base overflow-hidden">
+    <div class="px-4 py-3 border-b border-border-faint">
+      <h3 class="text-sm font-semibold text-body">
         {{ title }}
       </h3>
     </div>
@@ -45,7 +45,7 @@ function timeAgo(timestamp: string): string {
             <!-- Connecting line -->
             <span
               v-if="index < events.length - 1"
-              class="absolute left-4 top-4 -ml-px h-full w-0.5 bg-slate-200"
+              class="absolute left-4 top-4 -ml-px h-full w-0.5 bg-divider"
               aria-hidden="true"
             />
 
@@ -58,16 +58,16 @@ function timeAgo(timestamp: string): string {
               <!-- Content -->
               <div class="min-w-0 flex-1 pt-0.5">
                 <div class="flex items-center justify-between gap-2 flex-wrap">
-                  <p class="text-sm font-medium text-slate-900">
+                  <p class="text-sm font-medium text-body">
                     {{ event.label }}
                   </p>
-                  <time class="text-xs text-slate-500 whitespace-nowrap">
+                  <time class="text-xs text-muted whitespace-nowrap">
                     {{ timeAgo(event.timestamp) }}
                   </time>
                 </div>
                 <p
                   v-if="event.note"
-                  class="mt-1 text-xs text-slate-500 italic"
+                  class="mt-1 text-xs text-muted italic"
                 >
                   "{{ event.note }}"
                 </p>

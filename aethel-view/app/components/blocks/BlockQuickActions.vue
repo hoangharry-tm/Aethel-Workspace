@@ -15,12 +15,12 @@ defineProps<Props>()
 </script>
 
 <template>
-  <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+  <div class="bg-surface rounded-xl border border-border-base overflow-hidden">
     <div
       v-if="title"
-      class="px-4 py-3 border-b border-slate-100"
+      class="px-4 py-3 border-b border-border-faint"
     >
-      <h3 class="text-sm font-semibold text-slate-800">
+      <h3 class="text-sm font-semibold text-body">
         {{ title }}
       </h3>
     </div>

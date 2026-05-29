@@ -73,10 +73,10 @@ function createUser() {
     <!-- Header -->
     <div class="flex items-center justify-between gap-4 flex-wrap">
       <div>
-        <h1 class="text-xl font-bold text-slate-800">
+        <h1 class="text-xl font-bold text-body">
           Users
         </h1>
-        <p class="text-sm text-slate-500 mt-0.5">
+        <p class="text-sm text-muted mt-0.5">
           Manage workspace members and their access roles
         </p>
       </div>
@@ -91,36 +91,36 @@ function createUser() {
     </div>
 
     <!-- Table -->
-    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <div class="bg-surface rounded-xl border border-border-base overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
-          <thead class="bg-slate-50 border-b border-slate-200">
+          <thead class="bg-subtle border-b border-border-base">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <th class="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider">
                 User
               </th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell">
+              <th class="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider hidden sm:table-cell">
                 Email
               </th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <th class="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider">
                 Role
               </th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">
+              <th class="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider hidden md:table-cell">
                 Department
               </th>
-              <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <th class="px-4 py-3 text-center text-xs font-semibold text-muted uppercase tracking-wider">
                 Status
               </th>
-              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <th class="px-4 py-3 text-right text-xs font-semibold text-muted uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-100">
+          <tbody class="divide-y divide-border-faint">
             <tr
               v-for="user in localUsers"
               :key="user.id"
-              class="hover:bg-slate-50 transition-colors"
+              class="hover:bg-subtle transition-colors"
             >
               <td class="px-4 py-3">
                 <div class="flex items-center gap-3">
@@ -129,11 +129,11 @@ function createUser() {
                     :alt="user.name"
                     size="sm"
                   />
-                  <span class="text-sm font-medium text-slate-800">{{ user.name }}</span>
+                  <span class="text-sm font-medium text-body">{{ user.name }}</span>
                 </div>
               </td>
               <td class="px-4 py-3 hidden sm:table-cell">
-                <span class="text-xs text-slate-500">{{ user.email }}</span>
+                <span class="text-xs text-muted">{{ user.email }}</span>
               </td>
               <td class="px-4 py-3">
                 <UBadge
@@ -145,17 +145,17 @@ function createUser() {
                 </UBadge>
               </td>
               <td class="px-4 py-3 hidden md:table-cell">
-                <span class="text-xs text-slate-600">{{ user.department }}</span>
+                <span class="text-xs text-muted">{{ user.department }}</span>
               </td>
               <td class="px-4 py-3 text-center">
                 <button
                   class="inline-flex items-center gap-1.5 text-xs font-medium"
-                  :class="user.status === 'active' ? 'text-emerald-600' : 'text-slate-400'"
+                  :class="user.status === 'active' ? 'text-emerald-600' : 'text-icon-disabled'"
                   @click="toggleStatus(user.id)"
                 >
                   <span
                     class="h-2 w-2 rounded-full"
-                    :class="user.status === 'active' ? 'bg-emerald-500' : 'bg-slate-300'"
+                    :class="user.status === 'active' ? 'bg-emerald-500' : 'bg-divider'"
                   />
                   {{ user.status === 'active' ? 'Active' : 'Inactive' }}
                 </button>
@@ -188,7 +188,7 @@ function createUser() {
   <UModal v-model:open="showNewUserModal">
     <template #content>
       <div class="p-6 space-y-4">
-        <h3 class="text-base font-semibold text-slate-800">
+        <h3 class="text-base font-semibold text-body">
           New User
         </h3>
 

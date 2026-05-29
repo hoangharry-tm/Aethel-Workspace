@@ -97,8 +97,8 @@ function clearFilters() {
 <template>
   <div class="space-y-6">
     <div>
-      <h1 class="text-xl font-bold text-slate-800">Search Documents</h1>
-      <p class="text-sm text-slate-500 mt-0.5">
+      <h1 class="text-xl font-bold text-body">Search Documents</h1>
+      <p class="text-sm text-muted mt-0.5">
         Search by tracking number, sender, or subject
       </p>
     </div>
@@ -147,7 +147,7 @@ function clearFilters() {
     </div>
 
     <!-- Results count -->
-    <p v-if="hasFilters" class="text-sm text-slate-500">
+    <p v-if="hasFilters" class="text-sm text-muted">
       {{ filteredResults.length }} result{{
         filteredResults.length !== 1 ? "s" : ""
       }}
@@ -155,66 +155,66 @@ function clearFilters() {
     </p>
 
     <!-- Results table -->
-    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <div class="bg-surface rounded-xl border border-border-base overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
-          <thead class="bg-slate-50 border-b border-slate-200">
+          <thead class="bg-subtle border-b border-border-base">
             <tr>
               <th
-                class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider"
+                class="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider"
               >
                 Tracking ID
               </th>
               <th
-                class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider"
+                class="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider"
               >
                 Subject
               </th>
               <th
-                class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:table-cell"
+                class="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider hidden sm:table-cell"
               >
                 Sender
               </th>
               <th
-                class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider"
+                class="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider"
               >
                 Priority
               </th>
               <th
-                class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider"
+                class="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider"
               >
                 Status
               </th>
               <th
-                class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell"
+                class="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider hidden md:table-cell"
               >
                 Time
               </th>
               <th
-                class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider"
+                class="px-4 py-3 text-right text-xs font-semibold text-muted uppercase tracking-wider"
               >
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-100">
+          <tbody class="divide-y divide-border-faint">
             <tr
               v-for="doc in filteredResults"
               :key="doc.id"
-              class="hover:bg-slate-50 transition-colors"
+              class="hover:bg-subtle transition-colors"
             >
               <td class="px-4 py-3">
-                <span class="font-mono text-xs text-slate-600">{{
+                <span class="font-mono text-xs text-muted">{{
                   doc.trackingNumber
                 }}</span>
               </td>
               <td class="px-4 py-3 max-w-xs">
-                <p class="text-sm font-medium text-slate-800 truncate">
+                <p class="text-sm font-medium text-body truncate">
                   {{ doc.subject }}
                 </p>
               </td>
               <td class="px-4 py-3 hidden sm:table-cell">
-                <span class="text-xs text-slate-600">{{ doc.senderOrg }}</span>
+                <span class="text-xs text-muted">{{ doc.senderOrg }}</span>
               </td>
               <td class="px-4 py-3">
                 <UrgencyBadge :level="doc.urgency" />
@@ -223,7 +223,7 @@ function clearFilters() {
                 <DocumentStatusBadge :status="doc.status" />
               </td>
               <td class="px-4 py-3 hidden md:table-cell">
-                <span class="text-xs text-slate-500">{{
+                <span class="text-xs text-muted">{{
                   timeAgo(doc.dateReceived)
                 }}</span>
               </td>
@@ -244,12 +244,12 @@ function clearFilters() {
               <td colspan="7" class="px-4 py-14 text-center">
                 <UIcon
                   name="i-lucide-search-x"
-                  class="h-10 w-10 text-slate-200 mx-auto mb-3"
+                  class="h-10 w-10 text-icon-faint mx-auto mb-3"
                 />
-                <p class="text-sm font-medium text-slate-500">
+                <p class="text-sm font-medium text-muted">
                   No results found
                 </p>
-                <p class="text-xs text-slate-400 mt-1">
+                <p class="text-xs text-icon-disabled mt-1">
                   Try adjusting your search terms or filters
                 </p>
               </td>

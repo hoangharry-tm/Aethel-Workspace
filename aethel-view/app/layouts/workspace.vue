@@ -5,7 +5,7 @@ import NotificationDrawer from '~/components/layout/NotificationDrawer.vue'
 </script>
 
 <template>
-  <div class="h-dvh flex overflow-hidden bg-slate-50">
+  <div class="h-dvh flex overflow-hidden bg-subtle">
     <!-- Sidebar -->
     <WorkspaceSidebar />
 

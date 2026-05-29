@@ -73,10 +73,10 @@ const previewNavItems = ['Dashboard', 'Inbound', 'Outbound']
   <div class="space-y-6">
     <!-- Header -->
     <div>
-      <h1 class="text-xl font-bold text-slate-800">
+      <h1 class="text-xl font-bold text-body">
         Branding
       </h1>
-      <p class="text-sm text-slate-500 mt-0.5">
+      <p class="text-sm text-muted mt-0.5">
         Customize workspace appearance, logo, and color scheme
       </p>
     </div>
@@ -86,16 +86,16 @@ const previewNavItems = ['Dashboard', 'Inbound', 'Outbound']
       <!-- Left column: controls -->
       <div class="space-y-5">
         <!-- Brand Colors -->
-        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div class="px-4 py-3 border-b border-slate-100">
-            <h2 class="text-sm font-semibold text-slate-800">
+        <div class="bg-surface rounded-xl border border-border-base overflow-hidden">
+          <div class="px-4 py-3 border-b border-border-faint">
+            <h2 class="text-sm font-semibold text-body">
               Brand Colors
             </h2>
           </div>
           <div class="p-4 space-y-4">
             <!-- Primary Color -->
             <div class="space-y-1.5">
-              <label class="text-sm font-medium text-slate-700">Primary Color</label>
+              <label class="text-sm font-medium text-body">Primary Color</label>
               <div class="flex items-center gap-2">
                 <!-- Hidden native color input -->
                 <input
@@ -108,7 +108,7 @@ const previewNavItems = ['Dashboard', 'Inbound', 'Outbound']
                 <label
                   for="color-primary"
                   :style="{ background: form.primaryColor }"
-                  class="w-8 h-8 rounded-md cursor-pointer border border-slate-200 inline-block flex-shrink-0 shadow-sm"
+                  class="w-8 h-8 rounded-md cursor-pointer border border-border-base inline-block flex-shrink-0 shadow-sm"
                   title="Click to pick color"
                 />
                 <UInput
@@ -118,7 +118,7 @@ const previewNavItems = ['Dashboard', 'Inbound', 'Outbound']
                   class="w-32 font-mono"
                   @update:model-value="onHexInput"
                 />
-                <span class="text-xs text-slate-400">Hex value</span>
+                <span class="text-xs text-icon-disabled">Hex value</span>
               </div>
             </div>
 
@@ -134,9 +134,9 @@ const previewNavItems = ['Dashboard', 'Inbound', 'Outbound']
         </div>
 
         <!-- Typography -->
-        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div class="px-4 py-3 border-b border-slate-100">
-            <h2 class="text-sm font-semibold text-slate-800">
+        <div class="bg-surface rounded-xl border border-border-base overflow-hidden">
+          <div class="px-4 py-3 border-b border-border-faint">
+            <h2 class="text-sm font-semibold text-body">
               Typography
             </h2>
           </div>
@@ -152,9 +152,9 @@ const previewNavItems = ['Dashboard', 'Inbound', 'Outbound']
         </div>
 
         <!-- Identity -->
-        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div class="px-4 py-3 border-b border-slate-100">
-            <h2 class="text-sm font-semibold text-slate-800">
+        <div class="bg-surface rounded-xl border border-border-base overflow-hidden">
+          <div class="px-4 py-3 border-b border-border-faint">
+            <h2 class="text-sm font-semibold text-body">
               Identity
             </h2>
           </div>
@@ -169,7 +169,7 @@ const previewNavItems = ['Dashboard', 'Inbound', 'Outbound']
 
             <!-- Logo upload -->
             <div class="space-y-1.5">
-              <label class="text-sm font-medium text-slate-700">Logo</label>
+              <label class="text-sm font-medium text-body">Logo</label>
               <div class="flex items-center gap-2">
                 <input
                   id="logo-upload"
@@ -189,11 +189,11 @@ const previewNavItems = ['Dashboard', 'Inbound', 'Outbound']
                     Choose file
                   </UButton>
                 </label>
-                <span class="text-sm text-slate-500 truncate max-w-[200px]">
+                <span class="text-sm text-muted truncate max-w-[200px]">
                   {{ form.logoFileName || 'No file chosen' }}
                 </span>
               </div>
-              <p class="text-xs text-slate-400">
+              <p class="text-xs text-icon-disabled">
                 Recommended: SVG or PNG, 200x40px, transparent background
               </p>
             </div>
@@ -214,27 +214,27 @@ const previewNavItems = ['Dashboard', 'Inbound', 'Outbound']
 
       <!-- Right column: live preview -->
       <div class="space-y-3">
-        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div class="px-4 py-3 border-b border-slate-100">
-            <h2 class="text-sm font-semibold text-slate-800">
+        <div class="bg-surface rounded-xl border border-border-base overflow-hidden">
+          <div class="px-4 py-3 border-b border-border-faint">
+            <h2 class="text-sm font-semibold text-body">
               Live Preview
             </h2>
           </div>
 
           <!-- Mini workspace shell -->
           <div class="p-4">
-            <div class="rounded-lg border border-slate-200 overflow-hidden flex h-52 shadow-sm">
+            <div class="rounded-lg border border-border-base overflow-hidden flex h-52 shadow-sm">
               <!-- Mini sidebar -->
-              <div class="w-36 bg-white border-r border-slate-200 flex flex-col flex-shrink-0">
+              <div class="w-36 bg-surface border-r border-border-base flex flex-col flex-shrink-0">
                 <!-- Brand row -->
-                <div class="flex items-center gap-1.5 px-2 py-2 border-b border-slate-100">
+                <div class="flex items-center gap-1.5 px-2 py-2 border-b border-border-faint">
                   <div
                     class="flex h-5 w-5 items-center justify-center rounded flex-shrink-0"
                     :style="{ background: form.primaryColor }"
                   >
                     <UIcon name="i-lucide-building-2" class="h-3 w-3 text-white" />
                   </div>
-                  <span class="text-[10px] font-bold text-slate-800 truncate">
+                  <span class="text-[10px] font-bold text-body truncate">
                     {{ form.wordmark || 'Aethel Workspace' }}
                   </span>
                 </div>
@@ -244,7 +244,7 @@ const previewNavItems = ['Dashboard', 'Inbound', 'Outbound']
                     v-for="(item, i) in previewNavItems"
                     :key="item"
                     class="flex items-center gap-1.5 rounded px-1.5 py-1 text-[10px] font-medium"
-                    :class="i === 0 ? 'text-white' : 'text-slate-600'"
+                    :class="i === 0 ? 'text-white' : 'text-muted'"
                     :style="i === 0 ? { background: form.primaryColor } : {}"
                   >
                     <UIcon name="i-lucide-layout-dashboard" class="h-3 w-3 flex-shrink-0" />
@@ -254,10 +254,10 @@ const previewNavItems = ['Dashboard', 'Inbound', 'Outbound']
               </div>
 
               <!-- Mini main area -->
-              <div class="flex-1 bg-slate-50 flex flex-col">
+              <div class="flex-1 bg-subtle flex flex-col">
                 <!-- Mini topbar -->
-                <div class="flex items-center justify-between px-3 py-2 bg-white border-b border-slate-100">
-                  <span class="text-[10px] font-semibold text-slate-700">
+                <div class="flex items-center justify-between px-3 py-2 bg-surface border-b border-border-faint">
+                  <span class="text-[10px] font-semibold text-body">
                     {{ form.wordmark || 'Aethel Workspace' }}
                   </span>
                   <div
@@ -270,35 +270,35 @@ const previewNavItems = ['Dashboard', 'Inbound', 'Outbound']
 
                 <!-- Mini content area -->
                 <div class="flex-1 p-3 space-y-2">
-                  <div class="h-2 w-24 rounded bg-slate-200" />
-                  <div class="h-10 rounded bg-white border border-slate-200" />
+                  <div class="h-2 w-24 rounded bg-divider" />
+                  <div class="h-10 rounded bg-surface border border-border-base" />
                   <div class="grid grid-cols-2 gap-1.5">
-                    <div class="h-8 rounded bg-white border border-slate-200" />
-                    <div class="h-8 rounded bg-white border border-slate-200" />
+                    <div class="h-8 rounded bg-surface border border-border-base" />
+                    <div class="h-8 rounded bg-surface border border-border-base" />
                   </div>
                 </div>
               </div>
             </div>
 
-            <p class="mt-3 text-xs text-slate-500 text-center">
+            <p class="mt-3 text-xs text-muted text-center">
               Changes are applied organization-wide immediately after saving.
             </p>
           </div>
         </div>
 
         <!-- Font preview card -->
-        <div class="bg-white rounded-xl border border-slate-200 p-4 space-y-1.5">
-          <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+        <div class="bg-surface rounded-xl border border-border-base p-4 space-y-1.5">
+          <p class="text-xs font-semibold text-muted uppercase tracking-wider">
             Font preview
           </p>
           <p
-            class="text-base font-bold text-slate-900"
+            class="text-base font-bold text-body"
             :style="{ fontFamily: form.fontFamily }"
           >
             {{ form.wordmark || 'Aethel Workspace' }}
           </p>
           <p
-            class="text-sm text-slate-500"
+            class="text-sm text-muted"
             :style="{ fontFamily: form.fontFamily }"
           >
             The quick brown fox jumps over the lazy dog.

@@ -125,10 +125,10 @@ function removeStop(i: number) {
     <!-- Header -->
     <div class="flex items-center justify-between gap-4 flex-wrap">
       <div>
-        <h1 class="text-xl font-bold text-slate-800">
+        <h1 class="text-xl font-bold text-body">
           Routing Rules
         </h1>
-        <p class="text-sm text-slate-500 mt-0.5">
+        <p class="text-sm text-muted mt-0.5">
           Define how documents are automatically routed by type and sender
         </p>
       </div>
@@ -151,41 +151,41 @@ function removeStop(i: number) {
     />
 
     <!-- Table -->
-    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+    <div class="bg-surface rounded-xl border border-border-base overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
-          <thead class="bg-slate-50 border-b border-slate-200">
+          <thead class="bg-subtle border-b border-border-base">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-10">
+              <th class="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider w-10">
                 #
               </th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <th class="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider">
                 Conditions
               </th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <th class="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider">
                 Destination
               </th>
-              <th class="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">
+              <th class="px-4 py-3 text-left text-xs font-semibold text-muted uppercase tracking-wider hidden md:table-cell">
                 Route
               </th>
-              <th class="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <th class="px-4 py-3 text-center text-xs font-semibold text-muted uppercase tracking-wider">
                 Active
               </th>
-              <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <th class="px-4 py-3 text-right text-xs font-semibold text-muted uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-100">
+          <tbody class="divide-y divide-border-faint">
             <tr
               v-for="rule in localRules"
               :key="rule.id"
-              class="hover:bg-slate-50 transition-colors"
+              class="hover:bg-subtle transition-colors"
             >
               <td class="px-4 py-3">
                 <span class="flex items-center gap-1.5">
-                  <UIcon name="i-lucide-grip-vertical" class="h-4 w-4 text-slate-300" />
-                  <span class="text-xs font-mono text-slate-500">{{ rule.priority }}</span>
+                  <UIcon name="i-lucide-grip-vertical" class="h-4 w-4 text-icon-faint" />
+                  <span class="text-xs font-mono text-muted">{{ rule.priority }}</span>
                 </span>
               </td>
               <td class="px-4 py-3">
@@ -198,13 +198,13 @@ function removeStop(i: number) {
                       {{ rule.urgency }}
                     </UBadge>
                   </div>
-                  <p v-if="rule.senderOrg" class="text-xs text-slate-400">
+                  <p v-if="rule.senderOrg" class="text-xs text-icon-disabled">
                     Sender: {{ rule.senderOrg }}
                   </p>
                 </div>
               </td>
               <td class="px-4 py-3">
-                <span class="text-sm font-medium text-slate-700">{{ rule.destination }}</span>
+                <span class="text-sm font-medium text-body">{{ rule.destination }}</span>
               </td>
               <td class="px-4 py-3 hidden md:table-cell">
                 <div class="flex items-center gap-1 flex-wrap">
@@ -212,11 +212,11 @@ function removeStop(i: number) {
                     v-for="(stop, i) in rule.stops"
                     :key="stop + i"
                   >
-                    <span class="text-xs text-slate-500">{{ stop }}</span>
+                    <span class="text-xs text-muted">{{ stop }}</span>
                     <UIcon
                       v-if="i < rule.stops.length - 1"
                       name="i-lucide-arrow-right"
-                      class="h-3 w-3 text-slate-300"
+                      class="h-3 w-3 text-icon-faint"
                     />
                   </template>
                 </div>
@@ -224,7 +224,7 @@ function removeStop(i: number) {
               <td class="px-4 py-3 text-center">
                 <span
                   class="inline-block h-2 w-2 rounded-full"
-                  :class="rule.isActive ? 'bg-emerald-500' : 'bg-slate-300'"
+                  :class="rule.isActive ? 'bg-emerald-500' : 'bg-divider'"
                 />
               </td>
               <td class="px-4 py-3 text-right">
@@ -256,7 +256,7 @@ function removeStop(i: number) {
   <UModal v-model:open="showRuleModal">
     <template #content>
       <div class="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-        <h3 class="text-base font-semibold text-slate-800">
+        <h3 class="text-base font-semibold text-body">
           {{ isEditing ? 'Edit Rule' : 'New Routing Rule' }}
         </h3>
 
@@ -298,13 +298,13 @@ function removeStop(i: number) {
             id="multiStop"
             v-model="modalForm.isMultiStop"
             type="checkbox"
-            class="h-4 w-4 rounded border-slate-300 text-indigo-600"
+            class="h-4 w-4 rounded border-border-muted text-accent"
           >
-          <label for="multiStop" class="text-sm text-slate-700">Multi-stop routing</label>
+          <label for="multiStop" class="text-sm text-body">Multi-stop routing</label>
         </div>
 
         <div v-if="modalForm.isMultiStop" class="space-y-2">
-          <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          <p class="text-xs font-semibold text-muted uppercase tracking-wider">
             Routing Stops (in order)
           </p>
           <div
@@ -338,7 +338,7 @@ function removeStop(i: number) {
           </UButton>
         </div>
 
-        <div class="flex gap-2 pt-2 border-t border-slate-100">
+        <div class="flex gap-2 pt-2 border-t border-border-faint">
           <UButton
             color="primary"
             variant="solid"

@@ -72,6 +72,46 @@ Added in Phase 1.5 (2026-05-27). The platform pivoted from compile-time YAML inj
 
 Exported types: `AppRuntimeConfig`, `NavGroup`, `NavItem`
 
+### Dynamic Theming
+
+All color styling follows a three-layer CSS variable system — components never reference Tailwind palette names (`slate`, `indigo`) directly.
+
+**Layer 1 — `app/assets/css/main.css`**: semantic token defaults + Tailwind v4 `@theme` mapping:
+```css
+:root {
+  --color-text-body:   theme(colors.slate.800);
+  --color-text-muted:  theme(colors.slate.500);
+  --color-text-accent: theme(colors.indigo.600);
+  --color-bg-surface:  theme(colors.white);
+  --color-bg-subtle:   theme(colors.slate.50);
+}
+@theme {
+  --color-body:   var(--color-text-body);
+  --color-muted:  var(--color-text-muted);
+  --color-accent: var(--color-text-accent);
+}
+```
+
+**Layer 2 — `app/app.vue`**: `useHead()` injects runtime overrides from `useAppRuntimeConfig()`:
+```ts
+const { config } = useAppRuntimeConfig()
+useHead({
+  style: [{ innerHTML: computed(() => `
+    :root {
+      --color-text-accent: ${config.value.branding.primaryColor};
+      --ui-primary: ${config.value.branding.primaryColor};
+    }
+  `) }]
+})
+```
+
+**Layer 3 — Component rule**: use semantic classes only:
+- `text-body`, `text-muted`, `text-accent` — custom semantic tokens
+- `color="primary"` on Nuxt UI components — already wired to `--ui-primary`
+- Never: `text-slate-500`, `text-indigo-600`, `bg-indigo-*`, etc.
+
+**Phase 2 audit task**: `grep -r "text-indigo\|text-slate\|bg-indigo\|bg-slate" app/` surfaces all hardcoded palette classes in the current prototype that need replacing.
+
 ### Block Components (`app/components/blocks/`)
 
 Self-contained cards placeable on custom admin pages:

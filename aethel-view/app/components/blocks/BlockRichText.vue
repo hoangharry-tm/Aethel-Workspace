@@ -20,12 +20,12 @@ function handleSave() {
 </script>
 
 <template>
-  <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+  <div class="bg-surface rounded-xl border border-border-base overflow-hidden">
     <div
       v-if="title"
-      class="px-4 py-3 border-b border-slate-100"
+      class="px-4 py-3 border-b border-border-faint"
     >
-      <h3 class="text-sm font-semibold text-slate-800">
+      <h3 class="text-sm font-semibold text-body">
         {{ title }}
       </h3>
     </div>
@@ -34,7 +34,7 @@ function handleSave() {
       <div v-if="editable" class="space-y-3">
         <textarea
           v-model="editableContent"
-          class="w-full min-h-[160px] rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-y"
+          class="w-full min-h-[160px] rounded-lg border border-border-base bg-subtle px-3 py-2 text-sm text-body font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-y"
           placeholder="Enter HTML content..."
         />
         <UButton
@@ -50,7 +50,7 @@ function handleSave() {
 
       <div
         v-else
-        class="prose prose-sm prose-slate max-w-none text-slate-700 leading-relaxed"
+        class="prose prose-sm prose-slate max-w-none text-body leading-relaxed"
         v-html="content"
       />
     </div>

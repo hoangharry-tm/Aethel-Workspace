@@ -110,10 +110,10 @@ const roleBadgeColor: Record<string, 'primary' | 'success' | 'warning' | 'neutra
     <!-- Header -->
     <div class="flex items-center justify-between gap-4 flex-wrap">
       <div>
-        <h1 class="text-xl font-bold text-slate-800">
+        <h1 class="text-xl font-bold text-body">
           Navigation
         </h1>
-        <p class="text-sm text-slate-500 mt-0.5">
+        <p class="text-sm text-muted mt-0.5">
           Manage sidebar nav groups, item order, labels, and visibility
         </p>
       </div>
@@ -138,11 +138,11 @@ const roleBadgeColor: Record<string, 'primary' | 'success' | 'warning' | 'neutra
     <div
       v-for="(group, groupIdx) in localGroups"
       :key="group.label"
-      class="bg-white rounded-xl border border-slate-200 overflow-hidden"
+      class="bg-surface rounded-xl border border-border-base overflow-hidden"
     >
       <!-- Card header -->
-      <div class="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
-        <span class="text-sm font-semibold text-slate-800">{{ group.label }}</span>
+      <div class="flex items-center gap-3 px-4 py-3 border-b border-border-faint">
+        <span class="text-sm font-semibold text-body">{{ group.label }}</span>
         <div class="flex items-center gap-1">
           <UBadge
             v-for="role in group.roles"
@@ -157,7 +157,7 @@ const roleBadgeColor: Record<string, 'primary' | 'success' | 'warning' | 'neutra
       </div>
 
       <!-- Item list -->
-      <ul class="divide-y divide-slate-100">
+      <ul class="divide-y divide-border-faint">
         <li
           v-for="(item, itemIdx) in group.items"
           :key="item.to"
@@ -165,10 +165,10 @@ const roleBadgeColor: Record<string, 'primary' | 'success' | 'warning' | 'neutra
           :class="!item.visible ? 'opacity-40' : ''"
         >
           <!-- Drag handle (visual) -->
-          <UIcon name="i-lucide-grip-vertical" class="h-4 w-4 text-slate-300 flex-shrink-0" />
+          <UIcon name="i-lucide-grip-vertical" class="h-4 w-4 text-icon-faint flex-shrink-0" />
 
           <!-- Item icon -->
-          <UIcon :name="item.icon" class="h-4 w-4 text-slate-500 flex-shrink-0" />
+          <UIcon :name="item.icon" class="h-4 w-4 text-muted flex-shrink-0" />
 
           <!-- Editable label -->
           <div class="flex-1 min-w-0">
@@ -185,7 +185,7 @@ const roleBadgeColor: Record<string, 'primary' | 'success' | 'warning' | 'neutra
             </template>
             <button
               v-else
-              class="text-sm text-slate-700 hover:text-indigo-600 transition-colors text-left w-full truncate"
+              class="text-sm text-body hover:text-accent transition-colors text-left w-full truncate"
               :title="'Click to rename'"
               @click="startEdit(groupIdx, itemIdx, item.label)"
             >
@@ -194,7 +194,7 @@ const roleBadgeColor: Record<string, 'primary' | 'success' | 'warning' | 'neutra
           </div>
 
           <!-- Route path -->
-          <span class="hidden sm:block text-xs font-mono text-slate-400 truncate max-w-[120px]">
+          <span class="hidden sm:block text-xs font-mono text-icon-disabled truncate max-w-[120px]">
             {{ item.to }}
           </span>
 
@@ -228,7 +228,7 @@ const roleBadgeColor: Record<string, 'primary' | 'success' | 'warning' | 'neutra
       </ul>
 
       <!-- Card footer: Add Item -->
-      <div class="px-4 py-2.5 border-t border-slate-100 bg-slate-50/50">
+      <div class="px-4 py-2.5 border-t border-border-faint bg-accent/5">
         <UButton
           variant="ghost"
           color="neutral"
@@ -246,7 +246,7 @@ const roleBadgeColor: Record<string, 'primary' | 'success' | 'warning' | 'neutra
   <UModal v-model:open="showAddModal">
     <template #content>
       <div class="p-6 space-y-4">
-        <h3 class="text-base font-semibold text-slate-800">
+        <h3 class="text-base font-semibold text-body">
           Add Nav Item
         </h3>
         <UFormField label="Label" name="label" required>
@@ -258,7 +258,7 @@ const roleBadgeColor: Record<string, 'primary' | 'success' | 'warning' | 'neutra
         <UFormField label="Route" name="to" required>
           <UInput v-model="newItemForm.to" placeholder="/admin/reports" class="w-full font-mono" />
         </UFormField>
-        <div class="flex gap-2 pt-2 border-t border-slate-100">
+        <div class="flex gap-2 pt-2 border-t border-border-faint">
           <UButton color="primary" variant="solid" @click="addItem">
             Add Item
           </UButton>

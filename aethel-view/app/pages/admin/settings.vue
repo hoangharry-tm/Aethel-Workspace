@@ -78,21 +78,21 @@ const aliasExample = `schema:
   <div class="space-y-6 max-w-3xl">
     <!-- Header -->
     <div>
-      <h1 class="text-xl font-bold text-slate-800">
+      <h1 class="text-xl font-bold text-body">
         Settings
       </h1>
-      <p class="text-sm text-slate-500 mt-0.5">
+      <p class="text-sm text-muted mt-0.5">
         System-wide configuration and preferences
       </p>
     </div>
 
     <!-- Section 1: Organization Profile -->
-    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      <div class="px-4 py-3 border-b border-slate-100">
-        <h2 class="text-sm font-semibold text-slate-800">
+    <div class="bg-surface rounded-xl border border-border-base overflow-hidden">
+      <div class="px-4 py-3 border-b border-border-faint">
+        <h2 class="text-sm font-semibold text-body">
           Organization Profile
         </h2>
-        <p class="text-xs text-slate-500 mt-0.5">
+        <p class="text-xs text-muted mt-0.5">
           Basic details about your organization shown throughout the workspace.
         </p>
       </div>
@@ -132,7 +132,7 @@ const aliasExample = `schema:
           />
         </UFormField>
 
-        <div class="pt-2 border-t border-slate-100">
+        <div class="pt-2 border-t border-border-faint">
           <UButton
             color="primary"
             variant="solid"
@@ -146,27 +146,27 @@ const aliasExample = `schema:
     </div>
 
     <!-- Section 2: Feature Toggles -->
-    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      <div class="px-4 py-3 border-b border-slate-100">
-        <h2 class="text-sm font-semibold text-slate-800">
+    <div class="bg-surface rounded-xl border border-border-base overflow-hidden">
+      <div class="px-4 py-3 border-b border-border-faint">
+        <h2 class="text-sm font-semibold text-body">
           Feature Toggles
         </h2>
-        <p class="text-xs text-slate-500 mt-0.5">
+        <p class="text-xs text-muted mt-0.5">
           Enable or disable platform features. Changes take effect immediately.
         </p>
       </div>
-      <div class="divide-y divide-slate-100">
+      <div class="divide-y divide-border-faint">
         <!-- Green Noting -->
         <div class="flex items-center justify-between gap-4 px-4 py-4">
           <div class="flex items-center gap-3">
-            <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100">
-              <UIcon name="i-lucide-file-text" class="h-4 w-4 text-slate-600" />
+            <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-subtle-2">
+              <UIcon name="i-lucide-file-text" class="h-4 w-4 text-muted" />
             </div>
             <div>
-              <p class="text-sm font-medium text-slate-800">
+              <p class="text-sm font-medium text-body">
                 Enable Green Noting Canvas
               </p>
-              <p class="text-xs text-slate-500">
+              <p class="text-xs text-muted">
                 Activate institutional minute sheets and approval workflow
               </p>
             </div>
@@ -181,14 +181,14 @@ const aliasExample = `schema:
         <!-- External SMTP -->
         <div class="flex items-center justify-between gap-4 px-4 py-4">
           <div class="flex items-center gap-3">
-            <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100">
-              <UIcon name="i-lucide-mail" class="h-4 w-4 text-slate-600" />
+            <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-subtle-2">
+              <UIcon name="i-lucide-mail" class="h-4 w-4 text-muted" />
             </div>
             <div>
-              <p class="text-sm font-medium text-slate-800">
+              <p class="text-sm font-medium text-body">
                 Enable External SMTP for Email Notifications
               </p>
-              <p class="text-xs text-slate-500">
+              <p class="text-xs text-muted">
                 Send notification emails via a custom SMTP server
               </p>
             </div>
@@ -203,14 +203,14 @@ const aliasExample = `schema:
         <!-- 2FA -->
         <div class="flex items-center justify-between gap-4 px-4 py-4">
           <div class="flex items-center gap-3">
-            <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-slate-100">
-              <UIcon name="i-lucide-shield-check" class="h-4 w-4 text-slate-600" />
+            <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-subtle-2">
+              <UIcon name="i-lucide-shield-check" class="h-4 w-4 text-muted" />
             </div>
             <div>
-              <p class="text-sm font-medium text-slate-800">
+              <p class="text-sm font-medium text-body">
                 Require 2FA for Administrator Accounts
               </p>
-              <p class="text-xs text-slate-500">
+              <p class="text-xs text-muted">
                 Enforce two-factor authentication for all users with ADMIN role
               </p>
             </div>
@@ -225,13 +225,13 @@ const aliasExample = `schema:
     </div>
 
     <!-- Section 3: Database Naming (read-only) -->
-    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-      <div class="px-4 py-3 border-b border-slate-100">
-        <h2 class="text-sm font-semibold text-slate-800">
+    <div class="bg-surface rounded-xl border border-border-base overflow-hidden">
+      <div class="px-4 py-3 border-b border-border-faint">
+        <h2 class="text-sm font-semibold text-body">
           Table &amp; Enum Aliases
         </h2>
-        <p class="text-xs text-slate-500 mt-0.5">
-          Defined in <code class="bg-slate-100 rounded px-1 text-slate-700">blueprints/server-database.yaml</code>.
+        <p class="text-xs text-muted mt-0.5">
+          Defined in <code class="bg-subtle-2 rounded px-1 text-body">blueprints/server-database.yaml</code>.
           Changes require a server restart.
         </p>
       </div>
@@ -242,7 +242,7 @@ const aliasExample = `schema:
           icon="i-lucide-info"
           title="To change aliases, edit server-database.yaml and run `aethel migrate validate`."
         />
-        <pre class="bg-slate-50 rounded-lg p-4 text-xs font-mono text-slate-600 overflow-x-auto">{{ aliasExample }}</pre>
+        <pre class="bg-subtle rounded-lg p-4 text-xs font-mono text-muted overflow-x-auto">{{ aliasExample }}</pre>
       </div>
     </div>
   </div>

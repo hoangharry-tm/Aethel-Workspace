@@ -31,9 +31,9 @@ function selectItems(options: string[] = []) {
 </script>
 
 <template>
-  <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
-    <div class="px-4 py-3 border-b border-slate-100">
-      <h3 class="text-sm font-semibold text-slate-800">
+  <div class="bg-surface rounded-xl border border-border-base overflow-hidden">
+    <div class="px-4 py-3 border-b border-border-faint">
+      <h3 class="text-sm font-semibold text-body">
         {{ title }}
       </h3>
     </div>
@@ -72,7 +72,7 @@ function selectItems(options: string[] = []) {
         </UFormField>
       </div>
 
-      <div class="mt-4 pt-4 border-t border-slate-100">
+      <div class="mt-4 pt-4 border-t border-border-faint">
         <UButton
           color="primary"
           variant="solid"

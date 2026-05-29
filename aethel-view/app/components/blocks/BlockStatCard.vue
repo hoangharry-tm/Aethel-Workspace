@@ -12,13 +12,13 @@ const props = defineProps<Props>()
 const trendColor = computed(() => {
   if (props.trend === 'up') return 'text-emerald-600'
   if (props.trend === 'down') return 'text-rose-600'
-  return 'text-slate-400'
+  return 'text-icon-disabled'
 })
 
 const trendBg = computed(() => {
   if (props.trend === 'up') return 'bg-emerald-50'
   if (props.trend === 'down') return 'bg-rose-50'
-  return 'bg-slate-50'
+  return 'bg-subtle'
 })
 
 const trendIcon = computed(() => {
@@ -29,15 +29,15 @@ const trendIcon = computed(() => {
 </script>
 
 <template>
-  <div class="bg-white rounded-xl border border-slate-200 p-5 flex items-start gap-4">
-    <div class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-indigo-100">
-      <UIcon :name="icon" class="h-5 w-5 text-indigo-600" />
+  <div class="bg-surface rounded-xl border border-border-base p-5 flex items-start gap-4">
+    <div class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-accent/10">
+      <UIcon :name="icon" class="h-5 w-5 text-accent" />
     </div>
     <div class="flex-1 min-w-0">
-      <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">
+      <p class="text-xs font-medium text-muted uppercase tracking-wider">
         {{ title }}
       </p>
-      <p class="mt-1 text-2xl font-bold text-slate-900 tabular-nums">
+      <p class="mt-1 text-2xl font-bold text-body tabular-nums">
         {{ value }}
       </p>
       <div

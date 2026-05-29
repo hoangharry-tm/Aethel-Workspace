@@ -75,22 +75,22 @@ function handleNav() {
 <template>
   <!-- Desktop sidebar -->
   <aside
-    class="hidden lg:flex flex-col bg-white border-r border-slate-200 transition-all duration-200 flex-shrink-0"
+    class="hidden lg:flex flex-col bg-surface border-r border-border-base transition-all duration-200 flex-shrink-0"
     :class="isCollapsed ? 'w-16' : 'w-64'"
   >
     <!-- Brand -->
-    <div class="flex items-center gap-2 px-3 py-4 border-b border-slate-100 relative">
-      <div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-600">
+    <div class="flex items-center gap-2 px-3 py-4 border-b border-border-faint relative">
+      <div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-accent">
         <UIcon name="i-lucide-building-2" class="h-5 w-5 text-white" />
       </div>
       <span
         v-if="!isCollapsed"
-        class="font-bold text-slate-800 text-sm truncate"
+        class="font-bold text-body text-sm truncate"
       >
         Aethel Workspace
       </span>
       <button
-        class="ml-auto flex-shrink-0 rounded p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+        class="ml-auto flex-shrink-0 rounded p-1 text-icon-disabled hover:text-muted hover:bg-subtle-2 transition-colors"
         :title="isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
         @click="isCollapsed = !isCollapsed"
       >
@@ -110,7 +110,7 @@ function handleNav() {
       >
         <p
           v-if="!isCollapsed"
-          class="px-2 mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400"
+          class="px-2 mb-1 text-[10px] font-semibold uppercase tracking-wider text-icon-disabled"
         >
           {{ group.label }}
         </p>
@@ -122,8 +122,8 @@ function handleNav() {
           class="flex items-center gap-2.5 rounded-lg px-2 py-2 text-sm font-medium transition-colors group"
           :class="[
             isActive(item.to)
-              ? 'bg-indigo-50 text-indigo-600'
-              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900',
+              ? 'bg-accent/5 text-accent'
+              : 'text-muted hover:bg-subtle hover:text-body',
             isCollapsed ? 'justify-center' : '',
           ]"
           @click="handleNav"
@@ -158,7 +158,7 @@ function handleNav() {
     </nav>
 
     <!-- User section -->
-    <div class="border-t border-slate-100 p-2">
+    <div class="border-t border-border-faint p-2">
       <div
         class="flex items-center gap-2 rounded-lg p-2"
         :class="isCollapsed ? 'justify-center' : ''"
@@ -173,7 +173,7 @@ function handleNav() {
           v-if="!isCollapsed"
           class="flex-1 min-w-0"
         >
-          <p class="text-xs font-semibold text-slate-800 truncate">
+          <p class="text-xs font-semibold text-body truncate">
             {{ currentUser.name }}
           </p>
           <UBadge
@@ -203,15 +203,15 @@ function handleNav() {
     class="lg:hidden"
   >
     <template #content>
-      <div class="flex flex-col h-full bg-white w-64">
+      <div class="flex flex-col h-full bg-surface w-64">
         <!-- Brand -->
-        <div class="flex items-center gap-2 px-3 py-4 border-b border-slate-100">
-          <div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-600">
+        <div class="flex items-center gap-2 px-3 py-4 border-b border-border-faint">
+          <div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-accent">
             <UIcon name="i-lucide-building-2" class="h-5 w-5 text-white" />
           </div>
-          <span class="font-bold text-slate-800 text-sm">Aethel Workspace</span>
+          <span class="font-bold text-body text-sm">Aethel Workspace</span>
           <button
-            class="ml-auto rounded p-1 text-slate-400 hover:text-slate-600"
+            class="ml-auto rounded p-1 text-icon-disabled hover:text-muted"
             @click="closeDrawer"
           >
             <UIcon name="i-lucide-x" class="h-4 w-4" />
@@ -225,7 +225,7 @@ function handleNav() {
             :key="group.label"
             class="space-y-0.5"
           >
-            <p class="px-2 mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            <p class="px-2 mb-1 text-[10px] font-semibold uppercase tracking-wider text-icon-disabled">
               {{ group.label }}
             </p>
             <NuxtLink
@@ -233,7 +233,7 @@ function handleNav() {
               :key="item.to"
               :to="item.to"
               class="flex items-center gap-2.5 rounded-lg px-2 py-2 text-sm font-medium transition-colors"
-              :class="isActive(item.to) ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600 hover:bg-slate-50'"
+              :class="isActive(item.to) ? 'bg-accent/5 text-accent' : 'text-muted hover:bg-subtle'"
               @click="handleNav"
             >
               <UIcon :name="item.icon" class="h-5 w-5 flex-shrink-0" />
@@ -251,7 +251,7 @@ function handleNav() {
         </nav>
 
         <!-- User section -->
-        <div class="border-t border-slate-100 p-2">
+        <div class="border-t border-border-faint p-2">
           <div class="flex items-center gap-2 rounded-lg p-2">
             <UAvatar
               :src="currentUser.avatar"
@@ -260,7 +260,7 @@ function handleNav() {
               class="flex-shrink-0"
             />
             <div class="flex-1 min-w-0">
-              <p class="text-xs font-semibold text-slate-800 truncate">
+              <p class="text-xs font-semibold text-body truncate">
                 {{ currentUser.name }}
               </p>
               <UBadge color="primary" variant="soft" size="xs">

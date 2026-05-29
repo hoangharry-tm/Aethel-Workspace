@@ -36,8 +36,8 @@ function timeAgo(timestamp: string): string {
 }
 
 const eventConfig: Record<TimelineEventType, { icon: string, color: string, label: string }> = {
-  LOGGED: { icon: 'i-lucide-file-plus', color: 'bg-indigo-500', label: 'Document Logged' },
-  ROUTED: { icon: 'i-lucide-git-merge', color: 'bg-indigo-500', label: 'Auto-Routed' },
+  LOGGED: { icon: 'i-lucide-file-plus', color: 'bg-accent', label: 'Document Logged' },
+  ROUTED: { icon: 'i-lucide-git-merge', color: 'bg-accent', label: 'Auto-Routed' },
   ROUTING_OVERRIDDEN: { icon: 'i-lucide-git-pull-request', color: 'bg-amber-500', label: 'Routing Overridden' },
   NOTIFIED: { icon: 'i-lucide-bell', color: 'bg-sky-500', label: 'Recipient Notified' },
   HANDOFF_ATTEMPTED: { icon: 'i-lucide-user-check', color: 'bg-amber-500', label: 'Handoff Attempted' },
@@ -58,7 +58,7 @@ const eventConfig: Record<TimelineEventType, { icon: string, color: string, labe
         <!-- Connecting line -->
         <span
           v-if="index < events.length - 1"
-          class="absolute left-4 top-4 -ml-px h-full w-0.5 bg-slate-200"
+          class="absolute left-4 top-4 -ml-px h-full w-0.5 bg-divider"
           aria-hidden="true"
         />
 
@@ -67,7 +67,7 @@ const eventConfig: Record<TimelineEventType, { icon: string, color: string, labe
           <div class="relative flex items-center justify-center">
             <div
               class="flex h-8 w-8 items-center justify-center rounded-full ring-2 ring-white"
-              :class="eventConfig[event.type]?.color ?? 'bg-slate-400'"
+              :class="eventConfig[event.type]?.color ?? 'bg-icon-disabled'"
             >
               <UIcon
                 :name="eventConfig[event.type]?.icon ?? 'i-lucide-circle'"
@@ -79,15 +79,15 @@ const eventConfig: Record<TimelineEventType, { icon: string, color: string, labe
           <!-- Content -->
           <div class="min-w-0 flex-1 pt-0.5">
             <div class="flex items-center justify-between gap-2 flex-wrap">
-              <p class="text-sm font-medium text-slate-900">
+              <p class="text-sm font-medium text-body">
                 {{ eventConfig[event.type]?.label ?? event.type }}
               </p>
-              <time class="text-xs text-slate-500 whitespace-nowrap">
+              <time class="text-xs text-muted whitespace-nowrap">
                 {{ timeAgo(event.timestamp) }}
               </time>
             </div>
             <div class="mt-0.5 flex items-center gap-1.5">
-              <span class="text-xs text-slate-600">{{ event.actorName }}</span>
+              <span class="text-xs text-muted">{{ event.actorName }}</span>
               <UBadge
                 color="neutral"
                 variant="soft"
@@ -98,7 +98,7 @@ const eventConfig: Record<TimelineEventType, { icon: string, color: string, labe
             </div>
             <p
               v-if="event.note"
-              class="mt-1 text-xs text-slate-500 italic"
+              class="mt-1 text-xs text-muted italic"
             >
               "{{ event.note }}"
             </p>
